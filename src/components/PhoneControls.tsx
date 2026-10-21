@@ -1,13 +1,20 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { GameEngine } from '../game/engine';
-import { Zap, Smartphone } from 'lucide-react';
+import { Zap, Smartphone, Eye, EyeOff } from 'lucide-react';
 
 interface PhoneControlsProps {
   engine: GameEngine | null;
   chaiBoost: number;
+  areButtonsHidden?: boolean;
+  onToggleHideButtons?: () => void;
 }
 
-export const PhoneControls: React.FC<PhoneControlsProps> = ({ engine, chaiBoost }) => {
+export const PhoneControls: React.FC<PhoneControlsProps> = ({
+  engine,
+  chaiBoost,
+  areButtonsHidden = false,
+  onToggleHideButtons,
+}) => {
   const [controlMode, setControlMode] = useState<'buttons' | 'joystick' | 'tilt'>('buttons');
   const [joystickKnobX, setJoystickKnobX] = useState(0);
   const [isTiltActive, setIsTiltActive] = useState(false);
@@ -227,61 +234,92 @@ export const PhoneControls: React.FC<PhoneControlsProps> = ({ engine, chaiBoost 
     if (engine) engine.inputs.boost = false;
   };
 
+  const handleToggleHide = () => {
+    triggerHaptic(20);
+    if (onToggleHideButtons) {
+      onToggleHideButtons();
+    }
+  };
+
   return (
     <div className="absolute inset-x-0 bottom-0 z-30 pointer-events-none select-none p-3 pb-5 flex flex-col justify-end">
-      {/* Control Switcher Pills (Centered just above thumbs) */}
-      <div className="w-full flex items-center justify-center gap-2 mb-2 pointer-events-auto">
-        <button
-          onClick={() => {
-            setControlMode('buttons');
-            setIsTiltActive(false);
-            if (engine) engine.inputs.analogSteer = 0;
-            triggerHaptic(15);
-          }}
-          className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition ${
-            controlMode === 'buttons'
-              ? 'bg-amber-500 text-zinc-950 shadow-md'
-              : 'bg-zinc-950/70 text-zinc-400 border border-zinc-800'
-          }`}
-        >
-          Buttons
-        </button>
+      {/* Top Controls Bar: Switcher Pills + Dedicated Hide Button */}
+      {!areButtonsHidden ? (
+        <div className="w-full flex items-center justify-center gap-2 mb-2 pointer-events-auto flex-wrap">
+          <button
+            onClick={() => {
+              setControlMode('buttons');
+              setIsTiltActive(false);
+              if (engine) engine.inputs.analogSteer = 0;
+              triggerHaptic(15);
+            }}
+            className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition ${
+              controlMode === 'buttons'
+                ? 'bg-amber-500 text-zinc-950 shadow-md'
+                : 'bg-zinc-950/70 text-zinc-400 border border-zinc-800'
+            }`}
+          >
+            Buttons
+          </button>
 
-        <button
-          onClick={() => {
-            setControlMode('joystick');
-            setIsTiltActive(false);
-            triggerHaptic(15);
-          }}
-          className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition ${
-            controlMode === 'joystick'
-              ? 'bg-amber-500 text-zinc-950 shadow-md'
-              : 'bg-zinc-950/70 text-zinc-400 border border-zinc-800'
-          }`}
-        >
-          Handlebar Slider
-        </button>
+          <button
+            onClick={() => {
+              setControlMode('joystick');
+              setIsTiltActive(false);
+              triggerHaptic(15);
+            }}
+            className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition ${
+              controlMode === 'joystick'
+                ? 'bg-amber-500 text-zinc-950 shadow-md'
+                : 'bg-zinc-950/70 text-zinc-400 border border-zinc-800'
+            }`}
+          >
+            Handlebar Slider
+          </button>
 
-        <button
-          onClick={toggleTiltMode}
-          className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 transition ${
-            controlMode === 'tilt'
-              ? 'bg-amber-500 text-zinc-950 shadow-md'
-              : 'bg-zinc-950/70 text-zinc-400 border border-zinc-800'
-          }`}
-        >
-          <Smartphone className="w-3 h-3" />
-          <span>Tilt Phone</span>
-        </button>
-      </div>
+          <button
+            onClick={toggleTiltMode}
+            className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 transition ${
+              controlMode === 'tilt'
+                ? 'bg-amber-500 text-zinc-950 shadow-md'
+                : 'bg-zinc-950/70 text-zinc-400 border border-zinc-800'
+            }`}
+          >
+            <Smartphone className="w-3 h-3" />
+            <span>Tilt Phone</span>
+          </button>
+
+          {/* Dedicated Hide Button - hides extra buttons, keeps Race, Brake, Left & Right */}
+          <button
+            onClick={handleToggleHide}
+            className="flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-zinc-900/90 text-amber-300 hover:text-white border border-amber-500/60 shadow-lg transition active:scale-95 cursor-pointer"
+            title="Hide Extra Buttons (Keeps Race, Brake, Left & Right buttons)"
+          >
+            <EyeOff className="w-3 h-3 text-amber-400" />
+            <span>Hide Buttons</span>
+          </button>
+        </div>
+      ) : (
+        /* Floating Unhide / Show Buttons Pill when in Hidden mode */
+        <div className="w-full flex items-center justify-center mb-2 pointer-events-auto">
+          <button
+            onClick={handleToggleHide}
+            className="flex items-center gap-1.5 px-3.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-500/95 text-zinc-950 border border-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.6)] transition active:scale-95 animate-pulse cursor-pointer"
+            title="Show all buttons"
+          >
+            <Eye className="w-3.5 h-3.5 fill-current" />
+            <span>Show Buttons</span>
+          </button>
+        </div>
+      )}
 
       {/* Main Dual-Thumb Driving Controls */}
       <div className="w-full flex items-end justify-between px-1 sm:px-4 max-w-6xl mx-auto">
         {/* ========================================================= */}
-        {/* LEFT THUMB ZONE: STEERING (BUTTONS / JOYSTICK / TILT)     */}
+        {/* LEFT THUMB ZONE: LEFT & RIGHT BUTTONS (ALWAYS ACTIVE!)   */}
         {/* ========================================================= */}
         <div className="pointer-events-auto">
-          {controlMode === 'buttons' && (
+          {(controlMode === 'buttons' || areButtonsHidden) && (
             <div className="flex items-center gap-2 sm:gap-3 bg-zinc-950/80 p-2 rounded-2xl border-2 border-zinc-800/90 shadow-2xl backdrop-blur-none">
               <button
                 onTouchStart={handleLeftStart}
@@ -289,11 +327,12 @@ export const PhoneControls: React.FC<PhoneControlsProps> = ({ engine, chaiBoost 
                 onTouchCancel={handleLeftEnd}
                 onMouseDown={handleLeftStart}
                 onMouseUp={handleLeftEnd}
-                className={`w-16 h-16 sm:w-20 sm:h-20 rounded-xl flex flex-col items-center justify-center font-black transition active:scale-95 touch-none ${
+                className={`w-16 h-16 sm:w-20 sm:h-20 rounded-xl flex flex-col items-center justify-center font-black transition active:scale-95 touch-none cursor-pointer ${
                   isLeftPressed
                     ? 'bg-amber-500 text-zinc-950 shadow-[0_0_20px_rgba(245,158,11,0.6)]'
                     : 'bg-zinc-900 border border-zinc-700/80 text-amber-300'
                 }`}
+                title="Steer Left"
               >
                 <span className="text-2xl sm:text-3xl leading-none">◀</span>
                 <span className="text-[9px] uppercase tracking-wider mt-0.5 font-sans">Left</span>
@@ -305,11 +344,12 @@ export const PhoneControls: React.FC<PhoneControlsProps> = ({ engine, chaiBoost 
                 onTouchCancel={handleRightEnd}
                 onMouseDown={handleRightStart}
                 onMouseUp={handleRightEnd}
-                className={`w-16 h-16 sm:w-20 sm:h-20 rounded-xl flex flex-col items-center justify-center font-black transition active:scale-95 touch-none ${
+                className={`w-16 h-16 sm:w-20 sm:h-20 rounded-xl flex flex-col items-center justify-center font-black transition active:scale-95 touch-none cursor-pointer ${
                   isRightPressed
                     ? 'bg-amber-500 text-zinc-950 shadow-[0_0_20px_rgba(245,158,11,0.6)]'
                     : 'bg-zinc-900 border border-zinc-700/80 text-amber-300'
                 }`}
+                title="Steer Right"
               >
                 <span className="text-2xl sm:text-3xl leading-none">▶</span>
                 <span className="text-[9px] uppercase tracking-wider mt-0.5 font-sans">Right</span>
@@ -317,7 +357,7 @@ export const PhoneControls: React.FC<PhoneControlsProps> = ({ engine, chaiBoost 
             </div>
           )}
 
-          {controlMode === 'joystick' && (
+          {!areButtonsHidden && controlMode === 'joystick' && (
             <div
               ref={joystickBaseRef}
               onTouchStart={handleJoystickStart}
@@ -343,7 +383,7 @@ export const PhoneControls: React.FC<PhoneControlsProps> = ({ engine, chaiBoost 
             </div>
           )}
 
-          {controlMode === 'tilt' && (
+          {!areButtonsHidden && controlMode === 'tilt' && (
             <div className="bg-zinc-950/90 border-2 border-amber-500/60 rounded-2xl px-5 py-3 shadow-2xl flex flex-col items-center text-center max-w-[170px]">
               <Smartphone className="w-6 h-6 text-amber-400 animate-bounce" />
               <span className="text-xs font-bold text-amber-200 mt-1 uppercase">Tilt to Steer</span>
@@ -353,75 +393,83 @@ export const PhoneControls: React.FC<PhoneControlsProps> = ({ engine, chaiBoost 
         </div>
 
         {/* ========================================================= */}
-        {/* CENTER ACCENT: BIG TRUCK-ART HORN BUTTON ("PO-POOO!")     */}
+        {/* CENTER ACCENT: HORN BUTTON (HIDDEN IF areButtonsHidden)    */}
         {/* ========================================================= */}
-        <div className="pointer-events-auto mx-1 mb-1">
-          <button
-            onTouchStart={handleHornTap}
-            onClick={handleHornTap}
-            className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-br from-red-600 via-amber-500 to-yellow-500 hover:scale-105 active:scale-95 border-3 border-amber-200 shadow-[0_0_25px_rgba(245,158,11,0.5)] flex flex-col items-center justify-center text-zinc-950 font-black transition cursor-pointer touch-none"
-          >
-            <span className="text-xl sm:text-2xl leading-none">📯</span>
-            <span className="text-[8px] sm:text-[9px] uppercase tracking-tighter font-extrabold leading-none mt-0.5">
-              HORN OK
-            </span>
-          </button>
-        </div>
+        {!areButtonsHidden && (
+          <div className="pointer-events-auto mx-1 mb-1">
+            <button
+              onTouchStart={handleHornTap}
+              onClick={handleHornTap}
+              className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-br from-red-600 via-amber-500 to-yellow-500 hover:scale-105 active:scale-95 border-3 border-amber-200 shadow-[0_0_25px_rgba(245,158,11,0.5)] flex flex-col items-center justify-center text-zinc-950 font-black transition cursor-pointer touch-none"
+              title="Honk Horn"
+            >
+              <span className="text-xl sm:text-2xl leading-none">📯</span>
+              <span className="text-[8px] sm:text-[9px] uppercase tracking-tighter font-extrabold leading-none mt-0.5">
+                HORN OK
+              </span>
+            </button>
+          </div>
+        )}
 
         {/* ========================================================= */}
-        {/* RIGHT THUMB ZONE: GAS, BRAKE & CHAI BOOST                */}
+        {/* RIGHT THUMB ZONE: BRAKE & RACE (ALWAYS VISIBLE!) + BOOST  */}
         {/* ========================================================= */}
         <div className="flex items-end gap-2 pointer-events-auto">
-          {/* Chai Nitro Boost Button */}
-          <button
-            onTouchStart={handleBoostStart}
-            onTouchEnd={handleBoostEnd}
-            onTouchCancel={handleBoostEnd}
-            onMouseDown={handleBoostStart}
-            onMouseUp={handleBoostEnd}
-            disabled={chaiBoost <= 0}
-            className={`w-14 h-14 sm:w-16 sm:h-16 rounded-xl flex flex-col items-center justify-center transition active:scale-95 touch-none ${
-              chaiBoost > 0
-                ? isBoostPressed
-                  ? 'bg-amber-400 text-zinc-950 shadow-[0_0_25px_rgba(251,191,36,0.8)]'
-                  : 'bg-zinc-950/90 border-2 border-amber-500 text-amber-300'
-                : 'bg-zinc-900/60 border border-zinc-800 text-zinc-600 opacity-50 cursor-not-allowed'
-            }`}
-          >
-            <Zap className={`w-5 h-5 ${chaiBoost > 0 ? 'text-amber-400 fill-amber-400' : 'text-zinc-600'}`} />
-            <span className="text-[8px] uppercase font-bold tracking-wider mt-0.5">Boost</span>
-          </button>
+          {/* Chai Nitro Boost Button - Hidden when buttons are hidden */}
+          {!areButtonsHidden && (
+            <button
+              onTouchStart={handleBoostStart}
+              onTouchEnd={handleBoostEnd}
+              onTouchCancel={handleBoostEnd}
+              onMouseDown={handleBoostStart}
+              onMouseUp={handleBoostEnd}
+              disabled={chaiBoost <= 0}
+              className={`w-14 h-14 sm:w-16 sm:h-16 rounded-xl flex flex-col items-center justify-center transition active:scale-95 touch-none ${
+                chaiBoost > 0
+                  ? isBoostPressed
+                    ? 'bg-amber-400 text-zinc-950 shadow-[0_0_25px_rgba(251,191,36,0.8)]'
+                    : 'bg-zinc-950/90 border-2 border-amber-500 text-amber-300'
+                  : 'bg-zinc-900/60 border border-zinc-800 text-zinc-600 opacity-50 cursor-not-allowed'
+              }`}
+              title="Nitro Boost"
+            >
+              <Zap className={`w-5 h-5 ${chaiBoost > 0 ? 'text-amber-400 fill-amber-400' : 'text-zinc-600'}`} />
+              <span className="text-[8px] uppercase font-bold tracking-wider mt-0.5">Boost</span>
+            </button>
+          )}
 
-          {/* Brake Pedal */}
+          {/* Brake Pedal - ALWAYS VISIBLE */}
           <button
             onTouchStart={handleBrakeStart}
             onTouchEnd={handleBrakeEnd}
             onTouchCancel={handleBrakeEnd}
             onMouseDown={handleBrakeStart}
             onMouseUp={handleBrakeEnd}
-            className={`w-15 h-20 sm:w-18 sm:h-24 rounded-2xl flex flex-col items-center justify-between p-2 font-black transition active:scale-95 touch-none ${
+            className={`w-15 h-20 sm:w-18 sm:h-24 rounded-2xl flex flex-col items-center justify-between p-2 font-black transition active:scale-95 touch-none cursor-pointer ${
               isBrakePressed
                 ? 'bg-rose-600 text-white shadow-[0_0_25px_rgba(225,29,72,0.8)] border-2 border-rose-300'
                 : 'bg-rose-950/70 border-2 border-rose-800/80 text-rose-300'
             }`}
+            title="Brake / Reverse"
           >
             <span className="text-[9px] uppercase tracking-wider">STOP</span>
             <span className="text-xl sm:text-2xl font-mono leading-none">▼</span>
             <span className="text-[8px] uppercase tracking-tighter">BRAKE</span>
           </button>
 
-          {/* Gas / Accelerator Pedal */}
+          {/* Gas / Accelerator Pedal (RACE) - ALWAYS VISIBLE */}
           <button
             onTouchStart={handleGasStart}
             onTouchEnd={handleGasEnd}
             onTouchCancel={handleGasEnd}
             onMouseDown={handleGasStart}
             onMouseUp={handleGasEnd}
-            className={`w-16 h-24 sm:w-20 sm:h-28 rounded-2xl flex flex-col items-center justify-between p-2.5 font-black transition active:scale-95 touch-none ${
+            className={`w-16 h-24 sm:w-20 sm:h-28 rounded-2xl flex flex-col items-center justify-between p-2.5 font-black transition active:scale-95 touch-none cursor-pointer ${
               isGasPressed
                 ? 'bg-emerald-500 text-zinc-950 shadow-[0_0_30px_rgba(16,185,129,0.8)] border-2 border-white'
                 : 'bg-emerald-950/80 border-2 border-emerald-600 text-emerald-300'
             }`}
+            title="Accelerate / Race"
           >
             <span className="text-[9px] uppercase tracking-wider">RACE</span>
             <span className="text-2xl sm:text-3xl font-mono leading-none">▲</span>

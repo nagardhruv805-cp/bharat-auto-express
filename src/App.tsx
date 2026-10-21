@@ -3,11 +3,18 @@ import { GameEngine, GameState } from './game/engine';
 import { TitleScreen } from './components/TitleScreen';
 import { GameHUD } from './components/GameHUD';
 import { GameOverModal } from './components/GameOverModal';
+import { MissionLogModal } from './components/MissionLogModal';
+import { DesiPhoneModal } from './components/DesiPhoneModal';
+import { ChaiBreakModal } from './components/ChaiBreakModal';
+import { IndiaMapModal } from './components/IndiaMapModal';
 import { sounds } from './game/audio';
 
 export default function App() {
   const mountRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<GameEngine | null>(null);
+  const [isMissionModalOpen, setIsMissionModalOpen] = useState(false);
+  const [isPhoneModalOpen, setIsPhoneModalOpen] = useState(false);
+  const [isMapModalOpen, setIsMapModalOpen] = useState(false);
 
   const [gameState, setGameState] = useState<GameState>({
     speedKmh: 0,
@@ -23,6 +30,45 @@ export default function App() {
     isPaused: false,
     isGameOver: false,
     activeCameraMode: 'title',
+    timeString: '06:15 PM',
+    timePhase: 'sunset',
+    timePhaseLabel: 'Godhuli Sunset (Sandhya)',
+    isNight: false,
+    visibilityPercent: 75,
+    weather: {
+      type: 'sunny',
+      label: 'Clear & Sunny',
+      hindiLabel: 'धूप (Dhoop)',
+      icon: '☀️',
+      tractionMultiplier: 1.0,
+      visibilityPercent: 100,
+      isRaining: false,
+      isDusty: false,
+      windForce: 0,
+    },
+    handling: {
+      gripPercent: 100,
+      surfaceType: 'tarmac',
+      surfaceLabel: 'Dry Tarmac (Optimal)',
+      isAquaplaning: false,
+      isBrakeLocked: false,
+      isWheelSpinning: false,
+      isWindBuffeting: false,
+      adviceTip: 'Smooth highway. Accelerate freely!',
+    },
+    isNearChaiStall: false,
+    isChaiBreakActive: false,
+    goals: [],
+    unclaimedGoalsCount: 0,
+    currentStation: {
+      id: 'bollywood',
+      name: 'Radio Mirchi Nostalgia',
+      frequency: '98.3 FM',
+      genre: 'Retro Bollywood',
+      tagline: 'Kishore & Lata Classic Golden Melodies',
+    },
+    isTwoWheelStunt: false,
+    incomingCall: null,
     message: '',
   });
 
@@ -41,6 +87,21 @@ export default function App() {
       engine.dispose();
       engineRef.current = null;
     };
+  }, []);
+
+  // Global Keyboard shortcuts 'P' (Phone) and 'M' (India Map)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.key === 'p' || e.key === 'P') {
+        setIsPhoneModalOpen((prev) => !prev);
+      }
+      if (e.key === 'm' || e.key === 'M') {
+        setIsMapModalOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
   const handleStartGame = () => {
@@ -87,9 +148,40 @@ export default function App() {
           engine={engineRef.current}
           onTogglePause={handleTogglePause}
           onToggleMute={handleToggleMute}
+          onOpenMissions={() => setIsMissionModalOpen(true)}
+          onOpenPhone={() => setIsPhoneModalOpen(true)}
+          onOpenMap={() => setIsMapModalOpen(true)}
           isMuted={isMuted}
         />
       )}
+
+      {/* Daily Goals / Mission Log Modal */}
+      {isMissionModalOpen && (
+        <MissionLogModal
+          goals={gameState.goals}
+          onClaimReward={(id) => engineRef.current?.claimMissionReward(id)}
+          onClose={() => setIsMissionModalOpen(false)}
+        />
+      )}
+
+      {/* In-Game Mobile Phone (Virtual Calling Simulation) */}
+      <DesiPhoneModal
+        isOpen={isPhoneModalOpen}
+        onClose={() => setIsPhoneModalOpen(false)}
+        engine={engineRef.current}
+        incomingCallAlert={gameState.incomingCall}
+        onDismissIncomingAlert={() => engineRef.current?.dismissIncomingCall()}
+      />
+
+      {/* Bharat Yatra India Route Map GPS Tracker Modal */}
+      <IndiaMapModal
+        isOpen={isMapModalOpen}
+        onClose={() => setIsMapModalOpen(false)}
+        distanceKm={gameState.distanceKm}
+        totalEarnings={gameState.totalEarnings}
+        passengersServed={gameState.passengersServed}
+        chaiCount={gameState.chaiCount}
+      />
 
       {/* Game Over / Shift Report Card */}
       {gameState.isGameOver && (
@@ -98,6 +190,12 @@ export default function App() {
           onRestart={handleRestart}
         />
       )}
+
+      {/* Roadside Cutting Chai Break Animation Sequence Modal */}
+      <ChaiBreakModal
+        isOpen={gameState.isChaiBreakActive}
+        onFinish={() => engineRef.current?.finishChaiBreak()}
+      />
     </div>
   );
 }

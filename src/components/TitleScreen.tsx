@@ -91,17 +91,17 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({ onStart, isMuted, onTo
       </div>
 
       {/* Bottom Flat Control-Hint Line */}
-      <div className="w-full max-w-4xl mx-auto flex flex-wrap items-center justify-center gap-2 sm:gap-6 bg-zinc-950/85 border border-zinc-800/80 px-4 py-2.5 rounded-2xl text-[11px] sm:text-xs text-zinc-300 pointer-events-auto">
-        <div className="flex items-center gap-1">
-          <span className="text-amber-400 font-bold">📱 Phone:</span>
-          <span>Left/Right Steer Pads, Gas, Brake, Squeeze Horn, or Tilt Phone</span>
+      <div className="w-full max-w-4xl mx-auto flex flex-wrap items-center justify-center gap-2 sm:gap-5 bg-zinc-950/85 border border-zinc-800/80 px-4 py-2.5 rounded-2xl text-[11px] sm:text-xs text-zinc-300 pointer-events-auto">
+        <div className="flex items-center gap-1.5 text-amber-300 font-bold">
+          <span>📱 OPPO F27 5G:</span>
+          <span className="text-zinc-200 font-medium">Call Maa, Mechanic, Chaiwala & anyone in-game! [P]</span>
         </div>
         <div className="w-1 h-1 rounded-full bg-zinc-600 hidden sm:block" />
-        <div className="flex items-center gap-1 text-zinc-400 hidden sm:flex">
+        <div className="flex items-center gap-1 text-zinc-400">
           <kbd className="px-1.5 py-0.5 bg-zinc-800 rounded border border-zinc-700 text-amber-300 font-mono">WASD</kbd>
           <span>/</span>
           <kbd className="px-1.5 py-0.5 bg-zinc-800 rounded border border-zinc-700 text-amber-300 font-mono">SPACE</kbd>
-          <span className="ml-1">Keyboard</span>
+          <span className="ml-1 text-zinc-300">Gas & Steer</span>
         </div>
       </div>
     </div>

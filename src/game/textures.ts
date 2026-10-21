@@ -426,3 +426,638 @@ export function getRangoliTexture(): THREE.CanvasTexture {
   textureCache.set('rangoli', texture);
   return texture;
 }
+
+// 8. Soft Radial Contact Shadow Texture (prevents vehicles from looking floaty)
+export function getContactShadowTexture(): THREE.CanvasTexture {
+  if (textureCache.has('contact_shadow')) return textureCache.get('contact_shadow')!;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 256;
+  const ctx = canvas.getContext('2d')!;
+
+  ctx.clearRect(0, 0, 256, 256);
+
+  const grad = ctx.createRadialGradient(128, 128, 10, 128, 128, 120);
+  grad.addColorStop(0, 'rgba(5, 5, 5, 0.75)');
+  grad.addColorStop(0.35, 'rgba(10, 10, 10, 0.55)');
+  grad.addColorStop(0.7, 'rgba(20, 20, 20, 0.25)');
+  grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(128, 128, 120, 0, Math.PI * 2);
+  ctx.fill();
+
+  const texture = new THREE.CanvasTexture(canvas);
+  textureCache.set('contact_shadow', texture);
+  return texture;
+}
+
+// 9. Indian Yellow & Black Hazard Speed Breaker Stripe Texture
+export function getSpeedBreakerTexture(): THREE.CanvasTexture {
+  if (textureCache.has('speed_breaker')) return textureCache.get('speed_breaker')!;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 128;
+  const ctx = canvas.getContext('2d')!;
+
+  // Alternating high-vis Indian highway chevron stripes
+  const stripeW = 32;
+  for (let x = 0; x < 512; x += stripeW * 2) {
+    ctx.fillStyle = '#f59e0b'; // Amber highway yellow
+    ctx.fillRect(x, 0, stripeW, 128);
+    ctx.fillStyle = '#18181b'; // Tar black
+    ctx.fillRect(x + stripeW, 0, stripeW, 128);
+  }
+
+  // Weathering and tyre scuff marks
+  ctx.fillStyle = 'rgba(20, 20, 20, 0.3)';
+  for (let s = 0; s < 12; s++) {
+    ctx.fillRect(Math.random() * 512, Math.random() * 128, 40 + Math.random() * 60, 4);
+  }
+
+  const texture = setupTexture(canvas, 1, 1);
+  textureCache.set('speed_breaker', texture);
+  return texture;
+}
+
+// 10. Authentic Indian Vehicle Number Plate ("IND • DL 1R TA 4092")
+export function getLicensePlateTexture(regNumber = 'DL 1R TA 4092'): THREE.CanvasTexture {
+  const key = `plate_${regNumber}`;
+  if (textureCache.has(key)) return textureCache.get(key)!;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 64;
+  const ctx = canvas.getContext('2d')!;
+
+  // White reflective background with black border
+  ctx.fillStyle = '#f8fafc';
+  ctx.fillRect(0, 0, 256, 64);
+  ctx.strokeStyle = '#0f172a';
+  ctx.lineWidth = 4;
+  ctx.strokeRect(2, 2, 252, 60);
+
+  // Left Blue IND strip with Chakra symbol
+  ctx.fillStyle = '#1d4ed8';
+  ctx.fillRect(4, 4, 28, 56);
+  ctx.fillStyle = '#ffffff';
+  ctx.font = '900 11px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('IND', 18, 48);
+
+  // Ashoka Chakra circle
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(18, 22, 7, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Registration Number Text (embossed Indian RTO font)
+  ctx.fillStyle = '#0f172a';
+  ctx.font = '900 24px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText(regNumber, 145, 40);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  textureCache.set(key, texture);
+  return texture;
+}
+
+// 11. Authentic Circular Indian Auto Speedometer Dial (Bajaj RE 0-100 km/h)
+export function getSpeedometerDialTexture(): THREE.CanvasTexture {
+  if (textureCache.has('speedometer_dial')) return textureCache.get('speedometer_dial')!;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 512;
+  const ctx = canvas.getContext('2d')!;
+
+  const cx = 256;
+  const cy = 256;
+  const radius = 230;
+
+  // Dark charcoal gauge face with brass bezel ring
+  ctx.fillStyle = '#121316';
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Outer brass ring
+  ctx.strokeStyle = '#d97706';
+  ctx.lineWidth = 14;
+  ctx.stroke();
+
+  // Chrome inner ring
+  ctx.strokeStyle = '#cbd5e1';
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius - 16, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Green economy speed arc (30 to 50 km/h)
+  const startAng = Math.PI * 0.75;
+  const totalSweep = Math.PI * 1.5;
+  const ecoStart = startAng + (30 / 100) * totalSweep;
+  const ecoEnd = startAng + (55 / 100) * totalSweep;
+
+  ctx.strokeStyle = '#22c55e';
+  ctx.lineWidth = 10;
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius - 35, ecoStart, ecoEnd);
+  ctx.stroke();
+
+  // Tick marks (0 to 100 km/h)
+  for (let s = 0; s <= 100; s += 10) {
+    const angle = startAng + (s / 100) * totalSweep;
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+
+    const r1 = radius - 24;
+    const r2 = radius - (s % 20 === 0 ? 52 : 38);
+
+    ctx.strokeStyle = s > 65 ? '#ef4444' : '#ffffff';
+    ctx.lineWidth = s % 20 === 0 ? 5 : 3;
+    ctx.beginPath();
+    ctx.moveTo(cx + cos * r1, cy + sin * r1);
+    ctx.lineTo(cx + cos * r2, cy + sin * r2);
+    ctx.stroke();
+
+    if (s % 20 === 0) {
+      const textR = radius - 76;
+      ctx.fillStyle = s > 65 ? '#ef4444' : '#ffffff';
+      ctx.font = '900 28px monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(`${s}`, cx + cos * textR, cy + sin * textR);
+    }
+  }
+
+  // Central Branding & Odometer Box
+  ctx.fillStyle = '#f59e0b';
+  ctx.font = '900 22px "Cinzel", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('BAJAJ AUTO', cx, cy - 70);
+
+  ctx.fillStyle = '#94a3b8';
+  ctx.font = '700 16px monospace';
+  ctx.fillText('KM / H', cx, cy + 60);
+
+  // Mechanical 5-digit Odometer window
+  ctx.fillStyle = '#050505';
+  ctx.fillRect(cx - 70, cy - 25, 140, 36);
+  ctx.strokeStyle = '#334155';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(cx - 70, cy - 25, 140, 36);
+
+  ctx.fillStyle = '#f8fafc';
+  ctx.font = '900 24px monospace';
+  ctx.letterSpacing = '6px';
+  ctx.fillText('04829', cx, cy - 2);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  textureCache.set('speedometer_dial', texture);
+  return texture;
+}
+
+// 12. Realistic Twin Tire Skid Mark Texture
+export function getSkidMarkTexture(): THREE.CanvasTexture {
+  if (textureCache.has('skid_mark')) return textureCache.get('skid_mark')!;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = 128;
+  canvas.height = 512;
+  const ctx = canvas.getContext('2d')!;
+
+  ctx.clearRect(0, 0, 128, 512);
+
+  // Twin tire dark rubber rubber marks with tread grain
+  const grad = ctx.createLinearGradient(0, 0, 0, 512);
+  grad.addColorStop(0, 'rgba(10, 10, 12, 0)');
+  grad.addColorStop(0.15, 'rgba(15, 15, 18, 0.7)');
+  grad.addColorStop(0.85, 'rgba(15, 15, 18, 0.7)');
+  grad.addColorStop(1, 'rgba(10, 10, 12, 0)');
+
+  ctx.fillStyle = grad;
+  // Left tire track
+  ctx.fillRect(20, 0, 28, 512);
+  // Right tire track
+  ctx.fillRect(80, 0, 28, 512);
+
+  // Add rubber grain
+  ctx.fillStyle = 'rgba(5, 5, 6, 0.3)';
+  for (let y = 0; y < 512; y += 8) {
+    ctx.fillRect(22, y, 24, 3);
+    ctx.fillRect(82, y, 24, 3);
+  }
+
+  const texture = setupTexture(canvas, 1, 1);
+  textureCache.set('skid_mark', texture);
+  return texture;
+}
+
+// 13. Indian Highway Warning & Slogan Signboards
+export function getHighwaySignTexture(type: 'speed_breaker' | 'cows' | 'accident' | 'horn'): THREE.CanvasTexture {
+  const key = `hway_sign_${type}`;
+  if (textureCache.has(key)) return textureCache.get(key)!;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 512;
+  const ctx = canvas.getContext('2d')!;
+
+  if (type === 'speed_breaker') {
+    // Yellow highway diamond warning sign
+    ctx.fillStyle = '#f59e0b';
+    ctx.fillRect(0, 0, 512, 512);
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = 16;
+    ctx.strokeRect(16, 16, 480, 480);
+
+    ctx.fillStyle = '#0f172a';
+    ctx.textAlign = 'center';
+    ctx.font = '900 48px "Cinzel", sans-serif';
+    ctx.fillText('SPEED BREAKER', 256, 130);
+    ctx.fillText('AHEAD', 256, 190);
+
+    // Bump silhouette icon
+    ctx.fillStyle = '#0f172a';
+    ctx.beginPath();
+    ctx.ellipse(256, 310, 140, 50, 0, Math.PI, 0);
+    ctx.fill();
+    ctx.fillRect(80, 310, 352, 16);
+
+    ctx.font = '800 32px sans-serif';
+    ctx.fillText('गति अवरोधक', 256, 420);
+  } else if (type === 'cows') {
+    // Caution Cattle Crossing
+    ctx.fillStyle = '#f59e0b';
+    ctx.fillRect(0, 0, 512, 512);
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = 16;
+    ctx.strokeRect(16, 16, 480, 480);
+
+    ctx.fillStyle = '#0f172a';
+    ctx.textAlign = 'center';
+    ctx.font = '900 44px "Cinzel", sans-serif';
+    ctx.fillText('CAUTION: COWS', 256, 130);
+    ctx.fillText('CROSSING', 256, 190);
+
+    ctx.font = '800 38px sans-serif';
+    ctx.fillText('गौ माता सम्मान', 256, 320);
+    ctx.font = '700 32px sans-serif';
+    ctx.fillText('DRIVE SLOWLY', 256, 400);
+  } else if (type === 'accident') {
+    // Red border white sign
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, 512, 512);
+    ctx.strokeStyle = '#dc2626';
+    ctx.lineWidth = 28;
+    ctx.strokeRect(20, 20, 472, 472);
+
+    ctx.fillStyle = '#dc2626';
+    ctx.textAlign = 'center';
+    ctx.font = '900 52px "Cinzel", sans-serif';
+    ctx.fillText('GO SLOW', 256, 150);
+
+    ctx.fillStyle = '#0f172a';
+    ctx.font = '900 38px "Cinzel", sans-serif';
+    ctx.fillText('ACCIDENT PRONE', 256, 240);
+    ctx.fillText('ZONE', 256, 300);
+
+    ctx.fillStyle = '#16a34a';
+    ctx.font = '800 32px sans-serif';
+    ctx.fillText('★ DRIVE SAFE ★', 256, 400);
+  } else {
+    // Sound Horn / Use Dipper At Night
+    ctx.fillStyle = '#0284c7'; // Blue Indian highway circular sign
+    ctx.fillRect(0, 0, 512, 512);
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 16;
+    ctx.strokeRect(16, 16, 480, 480);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'center';
+    ctx.font = '900 44px "Cinzel", sans-serif';
+    ctx.fillText('USE DIPPER', 256, 160);
+    ctx.fillText('AT NIGHT', 256, 230);
+
+    ctx.fillStyle = '#fbbf24';
+    ctx.font = '900 36px "Cinzel", sans-serif';
+    ctx.fillText('रात्रौ डिपर का प्रयोग करें', 256, 330);
+    ctx.font = '700 30px sans-serif';
+    ctx.fillText('SOUND HORN ON TURNS', 256, 410);
+  }
+
+  const texture = setupTexture(canvas, 1, 1);
+  textureCache.set(key, texture);
+  return texture;
+}
+
+// 15. Handlebar Mounted In-Game Smartphone Screen Texture (OPPO F27 5G)
+export function getMountedPhoneScreenTexture(): THREE.CanvasTexture {
+  const key = 'mounted_phone_screen_oppo_f27';
+  if (textureCache.has(key)) return textureCache.get(key)!;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 512;
+  const ctx = canvas.getContext('2d')!;
+
+  // Background - Dark GPS navigation night mode
+  ctx.fillStyle = '#090d16';
+  ctx.fillRect(0, 0, 256, 512);
+
+  // Road grid lines
+  ctx.strokeStyle = '#1e293b';
+  ctx.lineWidth = 2;
+  for (let x = 0; x < 256; x += 32) {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, 512);
+    ctx.stroke();
+  }
+  for (let y = 0; y < 512; y += 32) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(256, y);
+    ctx.stroke();
+  }
+
+  // Cyan glowing GPS navigation route line
+  ctx.strokeStyle = '#06b6d4';
+  ctx.lineWidth = 14;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(128, 500);
+  ctx.lineTo(128, 220);
+  ctx.bezierCurveTo(128, 160, 160, 130, 200, 100);
+  ctx.stroke();
+
+  // Green user auto arrow
+  ctx.fillStyle = '#22c55e';
+  ctx.beginPath();
+  ctx.moveTo(128, 380);
+  ctx.lineTo(116, 415);
+  ctx.lineTo(128, 404);
+  ctx.lineTo(140, 415);
+  ctx.closePath();
+  ctx.fill();
+
+  // Top Status Bar (ColorOS 14 / Oppo F27 5G)
+  ctx.fillStyle = '#020617';
+  ctx.fillRect(0, 0, 256, 44);
+
+  // Central punch hole camera indicator
+  ctx.fillStyle = '#000000';
+  ctx.beginPath();
+  ctx.arc(128, 14, 6, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Network & Battery status
+  ctx.fillStyle = '#38bdf8';
+  ctx.font = 'bold 11px sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('Jio 5G', 10, 22);
+
+  ctx.fillStyle = '#4ade80';
+  ctx.font = 'bold 10px monospace';
+  ctx.textAlign = 'right';
+  ctx.fillText('94% ⚡', 246, 22);
+
+  // OPPO F27 5G Dynamic Aqua Island / Halo Light Banner
+  ctx.fillStyle = '#1e1b4b';
+  ctx.beginPath();
+  ctx.roundRect(8, 48, 240, 72, 14);
+  ctx.fill();
+  ctx.strokeStyle = '#f59e0b';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Glowing Halo Ring emblem
+  ctx.strokeStyle = '#fbbf24';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(38, 84, 18, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.fillStyle = '#d97706';
+  ctx.font = '16px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('🛺', 38, 89);
+
+  ctx.fillStyle = '#fef08a';
+  ctx.textAlign = 'left';
+  ctx.font = 'bold 14px sans-serif';
+  ctx.fillText('OPPO F27 5G', 66, 75);
+  ctx.fillStyle = '#cbd5e1';
+  ctx.font = '11px sans-serif';
+  ctx.fillText('ColorOS • Desi Virtual Call', 66, 94);
+  ctx.fillStyle = '#38bdf8';
+  ctx.font = '9px sans-serif';
+  ctx.fillText('BeaconLink Ready • 300% Vol', 66, 108);
+
+  // Bottom prompt card
+  ctx.fillStyle = '#022c22';
+  ctx.beginPath();
+  ctx.roundRect(8, 436, 240, 64, 14);
+  ctx.fill();
+  ctx.strokeStyle = '#10b981';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  ctx.fillStyle = '#34d399';
+  ctx.textAlign = 'center';
+  ctx.font = 'bold 13px sans-serif';
+  ctx.fillText('📞 PRESS [ P ] TO CALL', 128, 464);
+  ctx.fillStyle = '#a7f3d0';
+  ctx.font = '10px sans-serif';
+  ctx.fillText('Maa • Mechanic • Police • Anyone', 128, 484);
+
+  const texture = setupTexture(canvas, 1, 1);
+  textureCache.set(key, texture);
+  return texture;
+}
+
+// 16. Desi Agricultural Tractor Trolley / Sugarcane Trailer Slogan Texture
+export function getTractorTrolleyTexture(): THREE.CanvasTexture {
+  const key = 'tractor_trolley_texture';
+  if (textureCache.has(key)) return textureCache.get(key)!;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 256;
+  const ctx = canvas.getContext('2d')!;
+
+  // Deep forest green / dark blue wooden slat body
+  ctx.fillStyle = '#166534';
+  ctx.fillRect(0, 0, 512, 256);
+
+  // Horizontal wood plank grooves
+  ctx.strokeStyle = '#052e16';
+  ctx.lineWidth = 4;
+  for (let y = 0; y < 256; y += 42) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(512, y);
+    ctx.stroke();
+  }
+
+  // Yellow and red diagonal hazard stripes at base
+  ctx.fillStyle = '#f59e0b';
+  ctx.fillRect(0, 220, 512, 36);
+  ctx.fillStyle = '#dc2626';
+  for (let x = -50; x < 550; x += 40) {
+    ctx.beginPath();
+    ctx.moveTo(x, 256);
+    ctx.lineTo(x + 20, 256);
+    ctx.lineTo(x + 40, 220);
+    ctx.lineTo(x + 20, 220);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // Patriotic Indian Farmer Slogan ("JAI JAWAN JAI KISAN • KISAN EXPRESS")
+  ctx.fillStyle = '#fef08a';
+  ctx.font = '900 34px "Cinzel", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.shadowColor = '#000000';
+  ctx.shadowBlur = 6;
+  ctx.fillText('जय जवान जय किसान', 256, 80);
+
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 24px sans-serif';
+  ctx.fillText('KISAN POWER • NH-48', 256, 130);
+
+  ctx.fillStyle = '#fbbf24';
+  ctx.font = 'bold 18px monospace';
+  ctx.fillText('KEEP DISTANCE • 20 KM/H MAX', 256, 175);
+
+  const texture = setupTexture(canvas, 1, 1);
+  textureCache.set(key, texture);
+  return texture;
+}
+
+// 17. Rival Auto-Rickshaw Mudflap & Slogan Texture
+export function getRivalAutoMudflapTexture(variant: 'mumbai' | 'delhi' | 'bangalore' = 'mumbai'): THREE.CanvasTexture {
+  const key = `rival_mudflap_${variant}`;
+  if (textureCache.has(key)) return textureCache.get(key)!;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 128;
+  const ctx = canvas.getContext('2d')!;
+
+  ctx.fillStyle = '#18181b';
+  ctx.fillRect(0, 0, 256, 128);
+
+  ctx.strokeStyle = '#ef4444';
+  ctx.lineWidth = 4;
+  ctx.strokeRect(6, 6, 244, 116);
+
+  ctx.fillStyle = '#fef08a';
+  ctx.font = 'bold 18px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('बुरी नज़र वाले', 128, 42);
+
+  ctx.fillStyle = '#f87171';
+  ctx.font = 'bold 20px sans-serif';
+  ctx.fillText('तेरा मुँह काला 😈', 128, 72);
+
+  ctx.fillStyle = '#38bdf8';
+  ctx.font = 'bold 14px monospace';
+  const plates = {
+    mumbai: 'MH-02-AK-4200',
+    delhi: 'DL-1R-TUK-99',
+    bangalore: 'KA-01-EXP-786',
+  };
+  ctx.fillText(plates[variant], 128, 104);
+
+  const texture = setupTexture(canvas, 1, 1);
+  textureCache.set(key, texture);
+  return texture;
+}
+
+// 18. Indian State Transport Bus Destination Board ("LAL DIBBA EXPRESS")
+export function getBusRouteBoardTexture(): THREE.CanvasTexture {
+  const key = 'bus_route_board';
+  if (textureCache.has(key)) return textureCache.get(key)!;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 128;
+  const ctx = canvas.getContext('2d')!;
+
+  ctx.fillStyle = '#0f172a';
+  ctx.fillRect(0, 0, 512, 128);
+
+  ctx.strokeStyle = '#f59e0b';
+  ctx.lineWidth = 4;
+  ctx.strokeRect(6, 6, 500, 116);
+
+  ctx.fillStyle = '#fef08a';
+  ctx.font = '900 32px "Cinzel", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('महाराष्ट्र राज्य मार्ग परिवहन', 256, 45);
+
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 24px sans-serif';
+  ctx.fillText('MUMBAI ➔ PUNE EXPRESS', 256, 85);
+
+  ctx.fillStyle = '#38bdf8';
+  ctx.font = 'bold 16px monospace';
+  ctx.fillText('SPEED 50 KM/H • SOUND HORN', 256, 112);
+
+  const texture = setupTexture(canvas, 1, 1);
+  textureCache.set(key, texture);
+  return texture;
+}
+
+// 19. Cycle Rickshaw Decorative Canopy Texture (Vibrant Indian floral vinyl)
+export function getCycleRickshawHoodTexture(): THREE.CanvasTexture {
+  const key = 'cycle_rickshaw_hood';
+  if (textureCache.has(key)) return textureCache.get(key)!;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 256;
+  const ctx = canvas.getContext('2d')!;
+
+  // Crimson red base
+  ctx.fillStyle = '#b91c1c';
+  ctx.fillRect(0, 0, 256, 256);
+
+  // Marigold yellow & emerald geometric floral bands
+  ctx.fillStyle = '#f59e0b';
+  ctx.fillRect(0, 30, 256, 24);
+  ctx.fillRect(0, 202, 256, 24);
+
+  ctx.fillStyle = '#10b981';
+  ctx.fillRect(0, 54, 256, 12);
+  ctx.fillRect(0, 190, 256, 12);
+
+  // Rangoli lotus center medallion
+  ctx.fillStyle = '#fef08a';
+  ctx.beginPath();
+  ctx.arc(128, 128, 38, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = '#dc2626';
+  ctx.beginPath();
+  ctx.arc(128, 128, 22, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 12px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('SHREE', 128, 132);
+
+  const texture = setupTexture(canvas, 1, 1);
+  textureCache.set(key, texture);
+  return texture;
+}
+
+
