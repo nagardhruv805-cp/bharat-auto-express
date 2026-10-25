@@ -6,12 +6,20 @@ interface IndiaMiniMapProps {
   distanceKm: number;
   onOpenFullMap: () => void;
   areButtonsHidden?: boolean;
+  drivers?: Array<{
+    id: string;
+    name: string;
+    color: string;
+    speedKmh: number;
+    distanceKm: number;
+  }>;
 }
 
-export const IndiaMiniMap: React.FC<IndiaMiniMapProps> = ({
+export const IndiaMiniMap: React.FC<IndiaMiniMapProps> = React.memo(({
   distanceKm,
   onOpenFullMap,
   areButtonsHidden = false,
+  drivers = [],
 }) => {
   const location = getPlayerMapLocation(distanceKm);
 
@@ -66,6 +74,19 @@ export const IndiaMiniMap: React.FC<IndiaMiniMapProps> = ({
             opacity="0.6"
           />
 
+          {/* Remote Multiplayer Rickshaw GPS Blips */}
+          {drivers.map((d) => {
+            const dLoc = getPlayerMapLocation(d.distanceKm);
+            const dx = 18 + (dLoc.x / 400) * 68;
+            const dy = 10 + (dLoc.y / 500) * 135;
+            return (
+              <g key={d.id}>
+                <circle cx={dx} cy={dy} r="3" fill="#06b6d4" opacity="0.6" />
+                <circle cx={dx} cy={dy} r="1.8" fill="#22d3ee" stroke="#ffffff" strokeWidth="0.5" />
+              </g>
+            );
+          })}
+
           {/* Glowing Auto-Rickshaw GPS Blip */}
           <circle cx={miniX} cy={miniY} r="5" fill="#f59e0b" className="animate-ping opacity-75" />
           <circle cx={miniX} cy={miniY} r="2.8" fill="#fbbf24" stroke="#ffffff" strokeWidth="0.8" />
@@ -97,4 +118,4 @@ export const IndiaMiniMap: React.FC<IndiaMiniMapProps> = ({
       <ChevronRight className="w-3 h-3 text-amber-400/60 group-hover:text-amber-300 group-hover:translate-x-0.5 transition shrink-0 ml-auto" />
     </button>
   );
-};
+});

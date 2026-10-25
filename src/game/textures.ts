@@ -1060,4 +1060,146 @@ export function getCycleRickshawHoodTexture(): THREE.CanvasTexture {
   return texture;
 }
 
+// 24. Digital Dhaba Tabletop QR Standee Texture (Authentic Indian UPI / Rewards QR)
+export function getDhabaQrStandTexture(codeText: string = 'SHARMA-CHAI-99'): THREE.CanvasTexture {
+  const key = `dhaba_qr_${codeText}`;
+  if (textureCache.has(key)) return textureCache.get(key)!;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 768;
+  const ctx = canvas.getContext('2d')!;
+
+  // Acrylic Standee Dark Slate / Blue Gradient Frame
+  const grad = ctx.createLinearGradient(0, 0, 0, 768);
+  grad.addColorStop(0, '#0f172a');
+  grad.addColorStop(1, '#1e1b4b');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 512, 768);
+
+  // Vivid Orange & Emerald Accent Header Bands
+  ctx.fillStyle = '#f59e0b';
+  ctx.fillRect(16, 16, 480, 12);
+  ctx.fillStyle = '#10b981';
+  ctx.fillRect(16, 32, 480, 6);
+
+  // Top Title: DIGITAL DHABA REWARDS
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 32px sans-serif';
+  ctx.fillText('⚡ DIGITAL DHABA 5G 🛺', 256, 80);
+
+  ctx.fillStyle = '#38bdf8';
+  ctx.font = 'bold 20px monospace';
+  ctx.fillText('SCAN ON PHONE FOR REWARDS', 256, 115);
+
+  // White Background Card for High-Contrast QR Code
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  ctx.roundRect(40, 140, 432, 432, 24);
+  ctx.fill();
+
+  // Draw Procedural QR Pattern
+  const qrX = 66;
+  const qrY = 166;
+  const qrSize = 380;
+  const modules = 25;
+  const modSize = qrSize / modules;
+
+  // Background white
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(qrX, qrY, qrSize, qrSize);
+
+  // Helper to draw QR finder square (7x7)
+  const drawFinder = (cx: number, cy: number) => {
+    // Outer black square 7x7
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(cx, cy, modSize * 7, modSize * 7);
+    // Inner white square 5x5
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(cx + modSize, cy + modSize, modSize * 5, modSize * 5);
+    // Core black square 3x3
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(cx + modSize * 2, cy + modSize * 2, modSize * 3, modSize * 3);
+  };
+
+  // 3 Finder patterns
+  drawFinder(qrX, qrY); // Top-left
+  drawFinder(qrX + modSize * (modules - 7), qrY); // Top-right
+  drawFinder(qrX, qrY + modSize * (modules - 7)); // Bottom-left
+
+  // Timing patterns
+  ctx.fillStyle = '#000000';
+  for (let i = 8; i < modules - 8; i += 2) {
+    ctx.fillRect(qrX + i * modSize, qrY + 6 * modSize, modSize, modSize);
+    ctx.fillRect(qrX + 6 * modSize, qrY + i * modSize, modSize, modSize);
+  }
+
+  // Deterministic data modules based on codeText hash
+  let hash = 0;
+  for (let i = 0; i < codeText.length; i++) {
+    hash = (hash << 5) - hash + codeText.charCodeAt(i);
+    hash |= 0;
+  }
+
+  for (let r = 0; r < modules; r++) {
+    for (let c = 0; c < modules; c++) {
+      // Skip finder zones
+      if (r < 7 && c < 7) continue;
+      if (r < 7 && c >= modules - 7) continue;
+      if (r >= modules - 7 && c < 7) continue;
+      if (r === 6 || c === 6) continue;
+
+      const seed = Math.sin(r * 31 + c * 17 + hash) * 10000;
+      if (seed - Math.floor(seed) > 0.48) {
+        ctx.fillRect(qrX + c * modSize, qrY + r * modSize, modSize - 0.5, modSize - 0.5);
+      }
+    }
+  }
+
+  // Center Desi Emblem in QR
+  const centerSize = modSize * 5;
+  const centerX = qrX + (qrSize - centerSize) / 2;
+  const centerY = qrY + (qrSize - centerSize) / 2;
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  ctx.roundRect(centerX - 4, centerY - 4, centerSize + 8, centerSize + 8, 8);
+  ctx.fill();
+
+  ctx.fillStyle = '#f59e0b';
+  ctx.beginPath();
+  ctx.arc(centerX + centerSize / 2, centerY + centerSize / 2, centerSize / 2 - 2, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 24px sans-serif';
+  ctx.fillText('☕', centerX + centerSize / 2, centerY + centerSize / 2 + 8);
+
+  // Bottom text badge
+  ctx.fillStyle = '#1e293b';
+  ctx.beginPath();
+  ctx.roundRect(40, 590, 432, 130, 16);
+  ctx.fill();
+  ctx.strokeStyle = '#f59e0b';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  ctx.fillStyle = '#fbbf24';
+  ctx.font = 'bold 24px monospace';
+  ctx.fillText(codeText, 256, 630);
+
+  ctx.fillStyle = '#94a3b8';
+  ctx.font = '16px monospace';
+  ctx.fillText('DESI-PAY UPI: dhaba@airjio', 256, 665);
+
+  ctx.fillStyle = '#34d399';
+  ctx.font = 'bold 16px sans-serif';
+  ctx.fillText('★ FREE CUTTING CHAI & COIN REWARDS ★', 256, 695);
+
+  const texture = setupTexture(canvas, 1, 1);
+  textureCache.set(key, texture);
+  return texture;
+}
+
+
 

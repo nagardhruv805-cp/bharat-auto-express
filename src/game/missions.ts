@@ -1,6 +1,30 @@
 import { sounds } from './audio';
 
-export type GoalCategory = 'silence' | 'passengers' | 'chai' | 'cow' | 'speed' | 'distance';
+export type GoalCategory =
+  | 'silence'
+  | 'passengers'
+  | 'chai'
+  | 'dhaba_visit'
+  | 'maintain_speed'
+  | 'cow'
+  | 'speed'
+  | 'distance';
+
+export interface DhabaSubItem {
+  id: string;
+  name: string;
+  hindiName: string;
+  landmark: string;
+  sectorKm: number;
+  visited: boolean;
+}
+
+export interface SpeedBuffReward {
+  label: string;
+  durationSeconds: number;
+  speedBonusKmh: number;
+  description: string;
+}
 
 export interface DailyGoal {
   id: string;
@@ -9,11 +33,14 @@ export interface DailyGoal {
   description: string;
   target: number;
   current: number;
+  unit?: string; // 'dhabas' | 'seconds' | 'passengers' | 'cups' | 'temple'
   rewardRupees: number;
+  rewardBuff?: SpeedBuffReward;
   completed: boolean;
   claimed: boolean;
   icon: string;
   category: GoalCategory;
+  dhabaItems?: DhabaSubItem[];
 }
 
 export class MissionManager {
@@ -27,11 +54,73 @@ export class MissionManager {
   }
 
   public initDailyGoals() {
-    // 3 Curated Daily Goals as requested:
-    // 1. "Reach the temple without honking" (Silent Pilgrimage)
-    // 2. "Deliver passengers before sunset / safely" (Evening Express)
-    // 3. "Drink cutting chai / boost goals" (Chai Lover)
     this.goals = [
+      {
+        id: 'dhaba_hop',
+        title: 'Grand Dhaba Food Hop',
+        hindiTitle: 'महा ढाबा यात्रा',
+        description: 'Pull up and visit 3 iconic roadside dhabas along the NH-48 corridor.',
+        target: 3,
+        current: 0,
+        unit: 'dhabas',
+        rewardRupees: 650,
+        rewardBuff: {
+          label: 'Adrak Chai Overdrive',
+          durationSeconds: 45,
+          speedBonusKmh: 18,
+          description: '+18 km/h Top Speed & Infinite Stamina boost for 45s!',
+        },
+        completed: false,
+        claimed: false,
+        icon: '🏪',
+        category: 'dhaba_visit',
+        dhabaItems: [
+          {
+            id: 'sharma_dhaba',
+            name: 'Sharmaji Chai & Nashta Tapri',
+            hindiName: 'शर्माजी चाय नाश्ता',
+            landmark: 'Left Highway Shoulder (Km 1.5)',
+            sectorKm: 1.5,
+            visited: false,
+          },
+          {
+            id: 'punjab_dhaba',
+            name: 'Sher-e-Punjab Highway Dhaba',
+            hindiName: 'शेर-ए-पंजाब ढाबा',
+            landmark: 'Right Highway Oasis (Km 3.5)',
+            sectorKm: 3.5,
+            visited: false,
+          },
+          {
+            id: 'munna_samosa',
+            name: 'Munna Samosa Pullover Bay',
+            hindiName: 'मुन्ना समोसा ढाबा',
+            landmark: 'Truck Rest Stop (Km 5.5)',
+            sectorKm: 5.5,
+            visited: false,
+          },
+        ],
+      },
+      {
+        id: 'maintain_40_speed',
+        title: 'Highway Speed Master',
+        hindiTitle: 'हाईवे रफ्तार मास्टर',
+        description: 'Maintain steady 40+ km/h cruising speed for 2 minutes (120s) without dropping speed.',
+        target: 120,
+        current: 0,
+        unit: 'seconds',
+        rewardRupees: 750,
+        rewardBuff: {
+          label: 'Golden Bullet Nitro Surge',
+          durationSeconds: 60,
+          speedBonusKmh: 24,
+          description: '+24 km/h Rocket Surge & HyperBoost for 60s!',
+        },
+        completed: false,
+        claimed: false,
+        icon: '⚡',
+        category: 'maintain_speed',
+      },
       {
         id: 'temple_silence',
         title: 'Silent Pilgrimage',
@@ -39,7 +128,14 @@ export class MissionManager {
         description: 'Reach the next roadside temple without honking your horn once.',
         target: 1,
         current: 0,
-        rewardRupees: 350,
+        unit: 'temple',
+        rewardRupees: 400,
+        rewardBuff: {
+          label: 'Sacred Swiftness Blessing',
+          durationSeconds: 30,
+          speedBonusKmh: 14,
+          description: '+14 km/h Smooth Sacred Glide for 30s!',
+        },
         completed: false,
         claimed: false,
         icon: '🛕',
@@ -49,9 +145,10 @@ export class MissionManager {
         id: 'deliver_passengers',
         title: 'Sunset Express',
         hindiTitle: 'संध्या सवारी',
-        description: 'Safely deliver 3 passengers to their destinations.',
+        description: 'Safely pick up and deliver 3 passengers to their highway destinations.',
         target: 3,
         current: 0,
+        unit: 'passengers',
         rewardRupees: 500,
         completed: false,
         claimed: false,
@@ -61,11 +158,18 @@ export class MissionManager {
       {
         id: 'chai_boost',
         title: 'Cutting Chai Lover',
-        hindiTitle: 'कटिंग चाय प्रेमी',
+        hindiTitle: 'कड़क चाय प्रेमी',
         description: 'Collect 4 steaming cups of Cutting Chai on the highway.',
         target: 4,
         current: 0,
-        rewardRupees: 250,
+        unit: 'cups',
+        rewardRupees: 350,
+        rewardBuff: {
+          label: 'Kadak Caffeine Rush',
+          durationSeconds: 35,
+          speedBonusKmh: 16,
+          description: '+16 km/h Acceleration Surge for 35s!',
+        },
         completed: false,
         claimed: false,
         icon: '☕',
@@ -101,6 +205,45 @@ export class MissionManager {
       } else {
         // Reset silence counter for the next temple approach
         this.honkedSinceLastTemple = false;
+      }
+    }
+    return null;
+  }
+
+  // --- Event: Cruise Speed Tick (40+ km/h maintenance) ---
+  public onCruiseSpeedTick(speedKmh: number, dt: number): DailyGoal | null {
+    const goal = this.goals.find((g) => g.id === 'maintain_40_speed' && !g.completed);
+    if (!goal) return null;
+
+    if (speedKmh >= 40) {
+      goal.current = Math.min(goal.target, Math.round((goal.current + dt) * 10) / 10);
+      if (goal.current >= goal.target) {
+        goal.completed = true;
+        this.triggerGoalComplete(goal);
+        return goal;
+      }
+    } else {
+      // Gentle decay if dropping below 40 km/h (allows slight adjustments without losing all progress)
+      if (goal.current > 0) {
+        goal.current = Math.max(0, Math.round((goal.current - dt * 0.35) * 10) / 10);
+      }
+    }
+    return null;
+  }
+
+  // --- Event: Specific Dhaba Visited ---
+  public onDhabaVisited(dhabaId: string): DailyGoal | null {
+    const goal = this.goals.find((g) => g.id === 'dhaba_hop' && !g.completed);
+    if (!goal || !goal.dhabaItems) return null;
+
+    const item = goal.dhabaItems.find((d) => d.id === dhabaId);
+    if (item && !item.visited) {
+      item.visited = true;
+      goal.current = goal.dhabaItems.filter((d) => d.visited).length;
+      if (goal.current >= goal.target) {
+        goal.completed = true;
+        this.triggerGoalComplete(goal);
+        return goal;
       }
     }
     return null;
@@ -167,15 +310,15 @@ export class MissionManager {
     }
   }
 
-  // Claim bonus fare reward
-  public claimReward(goalId: string): number {
+  // Claim reward (returns rupees and sets claimed)
+  public claimReward(goalId: string): DailyGoal | null {
     const goal = this.goals.find((g) => g.id === goalId);
     if (goal && goal.completed && !goal.claimed) {
       goal.claimed = true;
       sounds.playCoin();
-      return goal.rewardRupees;
+      return goal;
     }
-    return 0;
+    return null;
   }
 
   public getUnclaimedRewardsCount(): number {

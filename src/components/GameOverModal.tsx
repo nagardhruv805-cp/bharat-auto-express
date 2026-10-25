@@ -1,12 +1,14 @@
 import React from 'react';
+import { Trophy } from 'lucide-react';
 import { GameState } from '../game/engine';
 
 interface GameOverModalProps {
   state: GameState;
   onRestart: () => void;
+  onOpenLeaderboard?: () => void;
 }
 
-export const GameOverModal: React.FC<GameOverModalProps> = ({ state, onRestart }) => {
+export const GameOverModal: React.FC<GameOverModalProps> = ({ state, onRestart, onOpenLeaderboard }) => {
   return (
     <div className="absolute inset-0 z-40 bg-zinc-950/85 flex items-center justify-center p-4 select-none">
       <div className="w-full max-w-md bg-stone-900 border-2 border-amber-500/60 rounded-3xl p-6 sm:p-8 shadow-2xl text-stone-100 flex flex-col gap-4 relative overflow-hidden">
@@ -57,14 +59,26 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({ state, onRestart }
           </div>
         </div>
 
-        {/* Restart Action */}
-        <button
-          onClick={onRestart}
-          onTouchStart={onRestart}
-          className="w-full py-4 mt-2 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 active:from-amber-400 active:to-amber-500 text-zinc-950 font-black text-sm uppercase tracking-wider shadow-lg active:scale-95 transition cursor-pointer"
-        >
-          Start New Shift (Drive Again) 🛺
-        </button>
+        {/* Action Buttons */}
+        <div className="flex flex-col gap-2 mt-2">
+          <button
+            onClick={onRestart}
+            onTouchStart={onRestart}
+            className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 active:from-amber-400 active:to-amber-500 text-zinc-950 font-black text-sm uppercase tracking-wider shadow-lg active:scale-95 transition cursor-pointer"
+          >
+            Start New Shift (Drive Again) 🛺
+          </button>
+
+          {onOpenLeaderboard && (
+            <button
+              onClick={onOpenLeaderboard}
+              className="w-full py-3 rounded-2xl bg-zinc-800 hover:bg-zinc-700 border border-amber-400/50 text-amber-300 font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer active:scale-95 transition"
+            >
+              <Trophy className="w-4 h-4 text-amber-400" />
+              <span>View All-India Leaderboard Ranks [L]</span>
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

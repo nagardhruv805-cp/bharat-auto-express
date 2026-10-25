@@ -18,11 +18,15 @@ import {
   Eye,
   EyeOff,
   Map,
+  Users,
+  Trophy,
 } from 'lucide-react';
 import { GameState, GameEngine } from '../game/engine';
+import { sounds } from '../game/audio';
 import { PhoneControls } from './PhoneControls';
 import { AnalogSpeedometer } from './AnalogSpeedometer';
 import { IndiaMiniMap } from './IndiaMiniMap';
+import { DriverProfile } from '../game/auth';
 
 interface GameHUDProps {
   state: GameState;
@@ -32,6 +36,10 @@ interface GameHUDProps {
   onOpenMissions: () => void;
   onOpenPhone: () => void;
   onOpenMap: () => void;
+  onOpenMultiplayer: () => void;
+  onOpenLeaderboard: () => void;
+  onOpenAuth: () => void;
+  driverProfile: DriverProfile | null;
   isMuted: boolean;
 }
 
@@ -43,6 +51,10 @@ export const GameHUD: React.FC<GameHUDProps> = ({
   onOpenMissions,
   onOpenPhone,
   onOpenMap,
+  onOpenMultiplayer,
+  onOpenLeaderboard,
+  onOpenAuth,
+  driverProfile,
   isMuted,
 }) => {
   const [hornType, setHornType] = useState<'airhorn' | 'bulb'>('airhorn');
@@ -80,10 +92,16 @@ export const GameHUD: React.FC<GameHUDProps> = ({
       if (e.code === 'KeyM') {
         onOpenMap();
       }
+      if (e.code === 'KeyN') {
+        onOpenMultiplayer();
+      }
+      if (e.code === 'KeyL') {
+        onOpenLeaderboard();
+      }
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [engine, onOpenMap]);
+  }, [engine, onOpenMap, onOpenMultiplayer, onOpenLeaderboard]);
 
   return (
     <div className="absolute inset-0 z-20 flex flex-col justify-between p-2 sm:p-5 pointer-events-none select-none text-white font-sans overflow-hidden">
@@ -134,6 +152,7 @@ export const GameHUD: React.FC<GameHUDProps> = ({
             distanceKm={state.distanceKm}
             onOpenFullMap={onOpenMap}
             areButtonsHidden={areButtonsHidden}
+            drivers={state.multiplayer.drivers}
           />
         </div>
 
@@ -356,6 +375,41 @@ export const GameHUD: React.FC<GameHUDProps> = ({
                     </span>
                   </div>
                 </button>
+
+                {/* 5G Highway Multiplayer Fleet Button */}
+                <button
+                  onClick={onOpenMultiplayer}
+                  className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl border-2 border-cyan-500/50 bg-zinc-950/90 hover:border-cyan-400 text-cyan-300 shadow-2xl transition cursor-pointer pointer-events-auto active:scale-95"
+                  title="Open NH-48 5G Multiplayer Fleet Lobby, Yaar Friends Network, Live Radio Chat & Custom Paint (Press N)"
+                >
+                  <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-cyan-400" />
+                  <div className="flex flex-col items-start leading-none text-left">
+                    <span className="text-[10px] sm:text-xs font-bold text-white flex items-center gap-1">
+                      Fleet & Yaar
+                      <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+                    </span>
+                    <span className="text-[8px] sm:text-[9px] font-mono text-cyan-300/90 tracking-tight">
+                      {state.multiplayer.onlineCount > 1 ? `${state.multiplayer.onlineCount} 5G` : '1 5G'} • [ N ]
+                    </span>
+                  </div>
+                </button>
+
+                {/* All-India Maha Ustaad Leaderboard Button */}
+                <button
+                  onClick={onOpenLeaderboard}
+                  className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl border-2 border-amber-500/50 bg-zinc-950/90 hover:border-amber-400 text-amber-300 shadow-2xl transition cursor-pointer pointer-events-auto active:scale-95"
+                  title="Open All-India Maha Ustaad Leaderboard & Highway Rankings (Press L)"
+                >
+                  <Trophy className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400" />
+                  <div className="flex flex-col items-start leading-none text-left">
+                    <span className="text-[10px] sm:text-xs font-bold text-white flex items-center gap-1">
+                      Ranks
+                    </span>
+                    <span className="text-[8px] sm:text-[9px] font-mono text-amber-300/90 tracking-tight">
+                      [ L ]
+                    </span>
+                  </div>
+                </button>
               </>
             )}
           </div>
@@ -377,20 +431,25 @@ export const GameHUD: React.FC<GameHUDProps> = ({
                   <p className="text-[10px] text-zinc-300 truncate">{state.incomingCall.relation}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-1.5 shrink-0">
+              <div className="flex items-center gap-2 shrink-0">
                 <button
                   onClick={onOpenPhone}
-                  className="px-2.5 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-black text-xs flex items-center gap-1 shadow-md active:scale-95 cursor-pointer"
-                  title="Answer Incoming Call on OPPO F27 5G"
+                  className="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-black text-xs flex items-center gap-1.5 shadow-md shadow-emerald-950/40 active:scale-95 cursor-pointer transition border border-emerald-300/40"
+                  title="Answer Incoming Call on OPPO F27 5G (Press P)"
                 >
-                  <PhoneCall className="w-3.5 h-3.5 fill-current" /> Answer
+                  <PhoneCall className="w-3.5 h-3.5 fill-current" />
+                  <span>Answer</span>
                 </button>
                 <button
-                  onClick={() => engine?.dismissIncomingCall()}
-                  className="p-1.5 rounded-xl bg-rose-600/90 hover:bg-rose-500 text-white shadow-md active:scale-95 cursor-pointer"
-                  title="Decline Call"
+                  onClick={() => {
+                    sounds.playPhoneClick();
+                    engine?.dismissIncomingCall();
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-rose-950/60 active:scale-95 cursor-pointer transition border border-rose-400/40 group"
+                  title="Cut Call (Reject incoming call)"
                 >
-                  <PhoneOff className="w-3.5 h-3.5" />
+                  <PhoneOff className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
+                  <span>Cut Call</span>
                 </button>
               </div>
             </div>
@@ -415,6 +474,17 @@ export const GameHUD: React.FC<GameHUDProps> = ({
             </button>
           )}
 
+          {/* Active Speed Buff / Nitro Overclock Banner */}
+          {state.speedBuff && state.speedBuff.remainingSeconds > 0 && (
+            <div className="bg-gradient-to-r from-amber-500/90 via-yellow-400 to-amber-500 text-zinc-950 px-3 py-1 rounded-full text-[10px] sm:text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-[0_0_20px_rgba(245,158,11,0.8)] animate-pulse pointer-events-auto">
+              <Zap className="w-3.5 h-3.5 fill-current animate-bounce" />
+              <span>⚡ {state.speedBuff.label.toUpperCase()}</span>
+              <span className="bg-zinc-950 text-amber-300 px-1.5 py-0.5 rounded-full text-[9px] font-mono font-black">
+                +{state.speedBuff.speedBonusKmh} KM/H • {Math.ceil(state.speedBuff.remainingSeconds)}s
+              </span>
+            </div>
+          )}
+
           {/* 2-Wheel Stunt Thrill Badge */}
           {state.isTwoWheelStunt && (
             <div className="bg-amber-500 text-zinc-950 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider animate-bounce shadow-lg">
@@ -428,10 +498,56 @@ export const GameHUD: React.FC<GameHUDProps> = ({
               {state.message}
             </div>
           )}
+
+          {/* Live Multiplayer Highway Radio Chat Toast */}
+          {state.multiplayer.lastChatToast && (
+            <div
+              onClick={onOpenMultiplayer}
+              className="bg-zinc-950/95 border border-cyan-400/80 hover:border-cyan-300 rounded-2xl px-3 py-1.5 shadow-[0_0_20px_rgba(6,182,212,0.4)] flex items-center gap-2 pointer-events-auto cursor-pointer animate-in fade-in slide-in-from-top-1 max-w-xs sm:max-w-md my-0.5"
+              title="Click to Open Fleet Radio Chat [N]"
+            >
+              <div className="w-5 h-5 rounded-full bg-cyan-500/20 text-cyan-400 border border-cyan-400/50 flex items-center justify-center text-xs shrink-0">
+                📻
+              </div>
+              <div className="truncate text-left leading-tight">
+                <span className="text-[10px] font-bold text-cyan-300 truncate block">
+                  🛺 {state.multiplayer.lastChatToast.name}:
+                </span>
+                <span className="text-[11px] text-white font-medium truncate block">
+                  "{state.multiplayer.lastChatToast.text}"
+                </span>
+              </div>
+              <span className="text-[8px] px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-mono font-bold shrink-0 ml-auto border border-cyan-500/30">
+                [N]
+              </span>
+            </div>
+          )}
         </div>
 
         {/* TOP-RIGHT: EARNINGS, CONDITION & QUICK ACTION BUTTONS */}
         <div className="bg-zinc-950/90 border sm:border-2 border-zinc-800 rounded-xl p-2 sm:p-3 shadow-2xl flex flex-col gap-1 sm:gap-2 min-w-[110px] sm:min-w-[160px] pointer-events-auto">
+          {/* Driver Permit Badge */}
+          <div
+            onClick={onOpenAuth}
+            className="flex items-center justify-between gap-1 pb-1 sm:pb-1.5 border-b border-zinc-800 cursor-pointer group hover:opacity-90 transition active:scale-98"
+            title="Driver Profile & License - Click to view, upgrade, or switch accounts"
+          >
+            <div className="flex items-center gap-1.5 truncate">
+              <span className="text-xs sm:text-sm">{driverProfile?.avatarIcon || '🛺'}</span>
+              <div className="truncate text-left leading-tight">
+                <div className="text-[8px] sm:text-[9px] font-bold text-zinc-400 uppercase tracking-tight flex items-center gap-1">
+                  {driverProfile?.isGuest ? 'Guest' : '⭐ Verified'}
+                </div>
+                <div className="text-[10px] sm:text-xs font-black text-amber-300 truncate max-w-[80px] sm:max-w-[115px]">
+                  {driverProfile?.name || 'Guest Driver'}
+                </div>
+              </div>
+            </div>
+            <span className="text-[8px] bg-zinc-800 group-hover:bg-amber-500/30 text-amber-300 px-1 py-0.5 rounded font-mono font-bold shrink-0">
+              {driverProfile?.isGuest ? 'Save' : 'ID'}
+            </span>
+          </div>
+
           <div className="flex items-center justify-between">
             <span className="text-[9px] sm:text-xs font-bold uppercase tracking-wider text-zinc-400">
               ₹ Earned
@@ -531,6 +647,16 @@ export const GameHUD: React.FC<GameHUDProps> = ({
                   title="Open Bharat Yatra GPS Route Map (M)"
                 >
                   <Map className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-400" />
+                </button>
+                <button
+                  onClick={onOpenMultiplayer}
+                  className="p-1 sm:p-1.5 rounded-lg bg-zinc-800 active:bg-zinc-700 text-cyan-300 hover:text-white transition cursor-pointer relative"
+                  title="Open NH-48 5G Multiplayer Fleet & Radio (N)"
+                >
+                  <Users className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-cyan-400" />
+                  {state.multiplayer.onlineCount > 1 && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse absolute top-0.5 right-0.5" />
+                  )}
                 </button>
               </>
             )}

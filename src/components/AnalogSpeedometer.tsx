@@ -5,7 +5,7 @@ interface AnalogSpeedometerProps {
   isBoosting?: boolean;
 }
 
-export const AnalogSpeedometer: React.FC<AnalogSpeedometerProps> = ({
+export const AnalogSpeedometer: React.FC<AnalogSpeedometerProps> = React.memo(({
   speedKmh,
   isBoosting = false,
 }) => {
@@ -242,4 +242,4 @@ export const AnalogSpeedometer: React.FC<AnalogSpeedometerProps> = ({
       </svg>
     </div>
   );
-};
+});

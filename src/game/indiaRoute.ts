@@ -6,6 +6,8 @@ export interface IndiaStop {
   km: number;
   x: number; // 0-400 SVG coordinate space
   y: number; // 0-500 SVG coordinate space
+  lat: number; // Real GPS latitude
+  lng: number; // Real GPS longitude
   landmark: string;
   icon: string;
   foodOrHighlight: string;
@@ -21,6 +23,8 @@ export const INDIA_STOPS: IndiaStop[] = [
     km: 0,
     x: 168,
     y: 155,
+    lat: 28.6139,
+    lng: 77.209,
     landmark: 'India Gate & Red Fort',
     icon: '🏛️',
     foodOrHighlight: 'Paranthe Wali Gali & Cutting Chai',
@@ -34,6 +38,8 @@ export const INDIA_STOPS: IndiaStop[] = [
     km: 2.5,
     x: 174,
     y: 170,
+    lat: 27.4924,
+    lng: 77.6737,
     landmark: 'Yamuna Ghats & Krishna Mandir',
     icon: '🛕',
     foodOrHighlight: 'Mathura Peda & Kesar Rabdi',
@@ -47,6 +53,8 @@ export const INDIA_STOPS: IndiaStop[] = [
     km: 5.0,
     x: 182,
     y: 182,
+    lat: 27.1767,
+    lng: 78.0081,
     landmark: 'Taj Mahal & Agra Fort',
     icon: '🕌',
     foodOrHighlight: 'Agra Petha & Ginger Masala Chai',
@@ -60,6 +68,8 @@ export const INDIA_STOPS: IndiaStop[] = [
     km: 8.0,
     x: 142,
     y: 190,
+    lat: 26.9124,
+    lng: 75.7873,
     landmark: 'Hawa Mahal & Amber Fort',
     icon: '🏰',
     foodOrHighlight: 'Pyaaz Kachori & Gulab Lassi',
@@ -73,6 +83,8 @@ export const INDIA_STOPS: IndiaStop[] = [
     km: 11.5,
     x: 126,
     y: 210,
+    lat: 26.4499,
+    lng: 74.6399,
     landmark: 'Dargah Sharif & Sacred Lake',
     icon: '✨',
     foodOrHighlight: 'Rabdi Malpua & Rose Tea',
@@ -86,6 +98,8 @@ export const INDIA_STOPS: IndiaStop[] = [
     km: 15.0,
     x: 122,
     y: 245,
+    lat: 24.5854,
+    lng: 73.7125,
     landmark: 'City Palace & Lake Pichola',
     icon: '⛵',
     foodOrHighlight: 'Dal Baati Churma & Dhaba Chai',
@@ -99,6 +113,8 @@ export const INDIA_STOPS: IndiaStop[] = [
     km: 19.0,
     x: 106,
     y: 270,
+    lat: 23.0225,
+    lng: 72.5714,
     landmark: 'Sabarmati Riverfront & Sidi Saiyyed',
     icon: '🪁',
     foodOrHighlight: 'Khaman Dhokla & Fafda Jalebi',
@@ -112,6 +128,8 @@ export const INDIA_STOPS: IndiaStop[] = [
     km: 23.0,
     x: 112,
     y: 300,
+    lat: 21.1702,
+    lng: 72.8311,
     landmark: 'Tapi River & Dutch Garden',
     icon: '💎',
     foodOrHighlight: 'Surti Locho & Ghari Sweets',
@@ -125,6 +143,8 @@ export const INDIA_STOPS: IndiaStop[] = [
     km: 28.0,
     x: 108,
     y: 334,
+    lat: 18.922,
+    lng: 72.8347,
     landmark: 'Marine Drive & Gateway of India',
     icon: '🏙️',
     foodOrHighlight: 'Cutting Chai & Mumbai Vada Pav',
@@ -138,6 +158,8 @@ export const INDIA_STOPS: IndiaStop[] = [
     km: 33.0,
     x: 128,
     y: 350,
+    lat: 18.5204,
+    lng: 73.8567,
     landmark: 'Western Ghats & Shaniwar Wada',
     icon: '⛰️',
     foodOrHighlight: 'Puneri Misal Pav & Chikki',
@@ -151,6 +173,8 @@ export const INDIA_STOPS: IndiaStop[] = [
     km: 39.0,
     x: 120,
     y: 395,
+    lat: 15.2993,
+    lng: 74.124,
     landmark: 'Calangute Palm Coast & Old Goa Churches',
     icon: '🏖️',
     foodOrHighlight: 'Bebinca & Spiced Coconut Tea',
@@ -164,6 +188,8 @@ export const INDIA_STOPS: IndiaStop[] = [
     km: 45.0,
     x: 152,
     y: 390,
+    lat: 15.335,
+    lng: 76.46,
     landmark: 'Stone Chariot & Tungabhadra River',
     icon: '🪨',
     foodOrHighlight: 'Bisi Bele Bath & Filter Kaapi',
@@ -177,6 +203,8 @@ export const INDIA_STOPS: IndiaStop[] = [
     km: 52.0,
     x: 168,
     y: 424,
+    lat: 12.9716,
+    lng: 77.5946,
     landmark: 'Vidhana Soudha & Lalbagh',
     icon: '💻',
     foodOrHighlight: 'Crispy Benne Dosa & Filter Coffee',
@@ -190,6 +218,8 @@ export const INDIA_STOPS: IndiaStop[] = [
     km: 58.0,
     x: 154,
     y: 436,
+    lat: 12.2958,
+    lng: 76.6394,
     landmark: 'Mysore Palace & Chamundi Hill',
     icon: '👑',
     foodOrHighlight: 'Mysore Pak & Cardamom Tea',
@@ -203,6 +233,8 @@ export const INDIA_STOPS: IndiaStop[] = [
     km: 65.0,
     x: 150,
     y: 458,
+    lat: 9.9312,
+    lng: 76.2673,
     landmark: 'Kerala Backwaters & Houseboats',
     icon: '🌴',
     foodOrHighlight: 'Appam Stew & Sulaimani Chai',
@@ -216,6 +248,8 @@ export const INDIA_STOPS: IndiaStop[] = [
     km: 75.0,
     x: 165,
     y: 482,
+    lat: 8.0883,
+    lng: 77.5385,
     landmark: 'Triveni Sangam & Vivekananda Rock',
     icon: '🌅',
     foodOrHighlight: 'Sunset Tender Coconut & Banana Chips',
@@ -230,6 +264,8 @@ export interface PlayerMapLocation {
   totalProgressPercent: number; // 0 to 100 across full Bharat journey
   x: number; // Current player SVG position
   y: number; // Current player SVG position
+  lat: number; // Real GPS latitude
+  lng: number; // Real GPS longitude
   headingDeg: number;
   remainingKmToNext: number;
   totalKmTraveled: number;
@@ -261,6 +297,8 @@ export function getPlayerMapLocation(distanceKm: number): PlayerMapLocation {
 
   const currentX = stopA.x + (stopB.x - stopA.x) * ratio;
   const currentY = stopA.y + (stopB.y - stopA.y) * ratio;
+  const currentLat = stopA.lat + (stopB.lat - stopA.lat) * ratio;
+  const currentLng = stopA.lng + (stopB.lng - stopA.lng) * ratio;
 
   // Calculate compass heading between Stop A and Stop B
   const dx = stopB.x - stopA.x;
@@ -279,6 +317,8 @@ export function getPlayerMapLocation(distanceKm: number): PlayerMapLocation {
     totalProgressPercent,
     x: currentX,
     y: currentY,
+    lat: currentLat,
+    lng: currentLng,
     headingDeg,
     remainingKmToNext,
     totalKmTraveled: safeDistance,

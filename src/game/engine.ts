@@ -7,9 +7,19 @@ import { getMeterScreenTexture, getSkidMarkTexture } from './textures';
 
 import { DynamicEnvironment, TimePhase, WeatherState, WeatherType } from './environment';
 import { MissionManager, DailyGoal } from './missions';
+import { MultiplayerManager, ChatMessage } from './multiplayer';
+import { updateSessionStats } from './auth';
 
 // Reusable math vectors to prevent GC allocations in tick loop
 const _vecA = new THREE.Vector3();
+const _vecB = new THREE.Vector3();
+const _vecC = new THREE.Vector3();
+const _camOffset = new THREE.Vector3();
+const _targetCamPos = new THREE.Vector3();
+const _lookTarget = new THREE.Vector3();
+const _driverEye = new THREE.Vector3();
+const _axisY = new THREE.Vector3(0, 1, 0);
+const _anchorWorld = new THREE.Vector3();
 
 export interface IncomingCallAlert {
   contactId: string;
@@ -28,6 +38,24 @@ export interface HandlingState {
   isWheelSpinning: boolean;
   isWindBuffeting: boolean;
   adviceTip: string;
+}
+
+export interface MultiplayerDriverInfo {
+  id: string;
+  name: string;
+  color: string;
+  speedKmh: number;
+  distanceKm: number;
+}
+
+export interface MultiplayerGameState {
+  isConnected: boolean;
+  pingMs: number;
+  onlineCount: number;
+  selfId: string | null;
+  drivers: MultiplayerDriverInfo[];
+  recentChats: ChatMessage[];
+  lastChatToast: ChatMessage | null;
 }
 
 export interface GameState {
@@ -59,9 +87,37 @@ export interface GameState {
   currentStation: RadioStationInfo;
   isTwoWheelStunt: boolean;
   incomingCall: IncomingCallAlert | null;
+  multiplayer: MultiplayerGameState;
+  speedBuff?: {
+    active: boolean;
+    label: string;
+    remainingSeconds: number;
+    speedBonusKmh: number;
+  } | null;
 }
 
 export type GameCallback = (state: GameState) => void;
+
+export interface DhabaQrReward {
+  type: 'cash' | 'chai' | 'repair' | 'speed' | 'vip';
+  title: string;
+  amount: number;
+  description: string;
+  discountText: string;
+  badge: string;
+}
+
+export interface DhabaQrTarget {
+  id: string;
+  title: string;
+  locationLabel: string;
+  code: string;
+  category: 'Dhaba' | 'Milestone' | 'Haveli' | 'Highway' | 'DesiNet';
+  distanceMeters: number;
+  direction: 'Left' | 'Right' | 'Ahead';
+  inScanRange: boolean;
+  reward: DhabaQrReward;
+}
 
 export class GameEngine {
   private mount: HTMLDivElement;
@@ -75,6 +131,7 @@ export class GameEngine {
   public world!: WorldManager;
   public environment!: DynamicEnvironment;
   public missions = new MissionManager();
+  public multiplayer!: MultiplayerManager;
 
   // Vehicle Kinematics
   public posX = 0;
@@ -181,7 +238,23 @@ export class GameEngine {
     currentStation: RADIO_STATIONS.find((s) => s.id === 'bollywood')!,
     isTwoWheelStunt: false,
     incomingCall: null,
+    multiplayer: {
+      isConnected: false,
+      pingMs: 24,
+      onlineCount: 1,
+      selfId: null,
+      drivers: [],
+      recentChats: [],
+      lastChatToast: null,
+    },
+    speedBuff: null,
   };
+
+  // Dynamic Mission Rewards & Temporary Speed Buff
+  public speedBuffTimer: number = 0;
+  public speedBuffDuration: number = 0;
+  public speedBuffBonusKmh: number = 0;
+  public speedBuffLabel: string = '';
 
   private incomingCallTimer = 50; // First incoming call after 50s of driving
   private currentPassengerDestZ = 0;
@@ -189,6 +262,7 @@ export class GameEngine {
   private cameraShake = 0;
   private hitstopTimer = 0;
   private titleOrbitAngle = 0;
+  private hudNotifyTimer = 0;
   private onStateChange: GameCallback | null = null;
 
   constructor(mount: HTMLDivElement, onStateChange?: GameCallback) {
@@ -213,15 +287,19 @@ export class GameEngine {
     this.camera = new THREE.PerspectiveCamera(58, width / height, 0.1, 900);
     this.camera.position.set(0, 4.5, -8);
 
-    // 3. Renderer with ACES Tone Mapping & PBR Environment
-    this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    // 3. Renderer with ACES Tone Mapping & PBR Environment (High-performance 60fps)
+    this.renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      powerPreference: 'high-performance',
+      preserveDrawingBuffer: false,
+    });
     this.renderer.setSize(width, height);
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.15;
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.shadowMap.type = THREE.PCFShadowMap;
 
     this.mount.appendChild(this.renderer.domElement);
 
@@ -239,6 +317,39 @@ export class GameEngine {
     this.rickshaw = createAutoRickshaw();
     this.rickshaw.position.set(0, 0, 0);
     this.scene.add(this.rickshaw);
+
+    // 7. 5G Real-Time WebSocket Multiplayer Fleet Manager
+    this.multiplayer = new MultiplayerManager(this.scene);
+    if (this.multiplayer.liveryId) {
+      this.multiplayer.applyLiveryToMesh(this.rickshaw, this.multiplayer.liveryId);
+    }
+    this.multiplayer.onStateChange = (mpState) => {
+      this.state.multiplayer.isConnected = mpState.isConnected;
+      this.state.multiplayer.pingMs = mpState.pingMs;
+      this.state.multiplayer.onlineCount = mpState.onlineCount;
+      this.state.multiplayer.selfId = mpState.selfId;
+      this.state.multiplayer.drivers = mpState.players.map((p) => ({
+        id: p.id,
+        name: p.name,
+        color: p.color,
+        speedKmh: p.speedKmh,
+        distanceKm: Math.max(0, Math.round((p.z / 1000) * 10) / 10),
+      }));
+      this.state.multiplayer.recentChats = mpState.chatFeed;
+      if (mpState.chatFeed.length > 0) {
+        this.state.multiplayer.lastChatToast = mpState.chatFeed[mpState.chatFeed.length - 1];
+      }
+      this.notifyState();
+    };
+  }
+
+  public updatePlayerProfile(name: string, liveryId: string) {
+    if (this.multiplayer) {
+      this.multiplayer.updateProfile(name, liveryId);
+      this.multiplayer.applyLiveryToMesh(this.rickshaw, liveryId);
+      this.setStateMessage(`🎨 Livery updated: ${name}!`);
+      this.notifyState();
+    }
   }
 
   private initParticles() {
@@ -309,8 +420,7 @@ export class GameEngine {
     if (!this.exhaustParticles || !this.exhaustData) return;
     const { positions, velocities, lifetimes } = this.exhaustData;
 
-    const anchorWorld = new THREE.Vector3();
-    this.rickshaw.localToWorld(anchorWorld.copy(this.rickshaw.exhaustAnchor));
+    this.rickshaw.localToWorld(_anchorWorld.copy(this.rickshaw.exhaustAnchor));
 
     const isBoosting = this.inputs.boost && this.state.chaiBoost > 0;
     const spawnRate = Math.abs(this.speed) > 0.5 ? 4 : 1;
@@ -319,9 +429,9 @@ export class GameEngine {
       lifetimes[i] += dt;
       if (lifetimes[i] > 0.8 && Math.random() < spawnRate * dt * 8) {
         lifetimes[i] = 0;
-        positions[i * 3] = anchorWorld.x + (Math.random() - 0.5) * 0.1;
-        positions[i * 3 + 1] = anchorWorld.y + (Math.random() - 0.5) * 0.05;
-        positions[i * 3 + 2] = anchorWorld.z - 0.2;
+        positions[i * 3] = _anchorWorld.x + (Math.random() - 0.5) * 0.1;
+        positions[i * 3 + 1] = _anchorWorld.y + (Math.random() - 0.5) * 0.05;
+        positions[i * 3 + 2] = _anchorWorld.z - 0.2;
 
         const exhaustDir = -Math.cos(this.headingAngle);
         velocities[i * 3] = (Math.random() - 0.5) * 0.8 - Math.sin(this.headingAngle) * (isBoosting ? 6 : 2);
@@ -485,7 +595,18 @@ export class GameEngine {
     this.state.condition = Math.min(100, this.state.condition + 25);
     this.state.chaiCount += 1;
     this.state.totalEarnings += 15;
+    updateSessionStats({ chai: 1, earnings: 15 });
     this.missions.onChaiCollected(this.state.chaiCount);
+
+    // Mark Dhaba visited for the Grand Dhaba Food Hop mission
+    const periodZ = ((Math.floor(this.posZ) % 600) + 600) % 600;
+    if (periodZ < 250) {
+      this.missions.onDhabaVisited('sharma_dhaba');
+    } else if (periodZ < 450) {
+      this.missions.onDhabaVisited('punjab_dhaba');
+    } else {
+      this.missions.onDhabaVisited('munna_samosa');
+    }
 
     this.setStateMessage('☕ Cutting Chai Break! Refueling stamina at roadside stall...');
     this.notifyState();
@@ -515,14 +636,43 @@ export class GameEngine {
   }
 
   public claimMissionReward(goalId: string) {
-    const reward = this.missions.claimReward(goalId);
-    if (reward > 0) {
+    const goal = this.missions.claimReward(goalId);
+    if (goal) {
       sounds.playMissionComplete();
-      this.state.totalEarnings += reward;
+      this.state.totalEarnings += goal.rewardRupees;
+      updateSessionStats({ earnings: goal.rewardRupees });
       this.state.unclaimedGoalsCount = this.missions.getUnclaimedRewardsCount();
-      this.setStateMessage(`🎉 Claimed ₹${reward} Mission Reward! Bahut khoob!`);
+
+      if (goal.rewardBuff) {
+        this.applySpeedBuff(
+          goal.rewardBuff.durationSeconds,
+          goal.rewardBuff.label,
+          goal.rewardBuff.speedBonusKmh
+        );
+        this.setStateMessage(
+          `🎉 Claimed ₹${goal.rewardRupees} + ⚡ ${goal.rewardBuff.label} (+${goal.rewardBuff.speedBonusKmh} km/h for ${goal.rewardBuff.durationSeconds}s)!`
+        );
+      } else {
+        this.setStateMessage(`🎉 Claimed ₹${goal.rewardRupees} Mission Reward! Bahut khoob!`);
+      }
       this.notifyState();
     }
+  }
+
+  public applySpeedBuff(durationSeconds: number, label: string, speedBonusKmh: number = 20) {
+    this.speedBuffTimer = durationSeconds;
+    this.speedBuffDuration = durationSeconds;
+    this.speedBuffBonusKmh = speedBonusKmh;
+    this.speedBuffLabel = label;
+    this.state.chaiBoost = 100; // Refill chai stamina for nitro boost
+    sounds.playChaiBoost();
+    this.state.speedBuff = {
+      active: true,
+      label,
+      remainingSeconds: Math.ceil(durationSeconds),
+      speedBonusKmh,
+    };
+    this.notifyState();
   }
 
   public repairVehicle(amount: number = 50, cost: number = 30): boolean {
@@ -654,6 +804,7 @@ export class GameEngine {
   }
 
   public notifyState() {
+    this.hudNotifyTimer = 0;
     if (this.onStateChange) {
       this.onStateChange({ ...this.state });
     }
@@ -702,6 +853,7 @@ export class GameEngine {
     this.state.totalEarnings += fareEarned;
     this.state.passengersServed += 1;
     this.state.fareRupees = 25;
+    updateSessionStats({ earnings: fareEarned, trips: 1 });
 
     if (this.passengerPassengerMesh) {
       this.rickshaw.bodyLeanPivot.remove(this.passengerPassengerMesh);
@@ -757,11 +909,17 @@ export class GameEngine {
 
     const forwardPower = Math.max(this.inputs.forward ? 1 : 0, this.inputs.analogThrottle);
     const brakePower = Math.max(this.inputs.backward ? 1 : 0, this.inputs.analogBrake);
-    const isBoosting = this.inputs.boost && this.state.chaiBoost > 0;
-    const currentMaxSpeed = isBoosting ? this.BOOST_MAX_SPEED : this.MAX_SPEED;
+    const isBoosting = this.inputs.boost && (this.state.chaiBoost > 0 || this.speedBuffTimer > 0);
+    
+    // Incorporate dynamic mission speed buff
+    const speedBonusMps = this.speedBuffTimer > 0 ? this.speedBuffBonusKmh / 3.6 : 0;
+    const baseMax = isBoosting ? this.BOOST_MAX_SPEED : this.MAX_SPEED;
+    const currentMaxSpeed = baseMax + speedBonusMps;
 
     if (isBoosting) {
-      this.state.chaiBoost = Math.max(0, this.state.chaiBoost - dt * 25);
+      if (this.speedBuffTimer <= 0) {
+        this.state.chaiBoost = Math.max(0, this.state.chaiBoost - dt * 25);
+      }
       if (Math.random() < 0.15) sounds.playChaiBoost();
     }
 
@@ -781,7 +939,8 @@ export class GameEngine {
     let targetAcc = 0;
     if (forwardPower > 0) {
       const surfaceGrip = (0.55 + 0.45 * baseTraction) * torqueBite;
-      targetAcc = this.ACCELERATION * forwardPower * (isBoosting ? 1.7 : 1.0) * surfaceGrip;
+      const buffAccMultiplier = this.speedBuffTimer > 0 ? 1.4 : 1.0;
+      targetAcc = this.ACCELERATION * forwardPower * (isBoosting ? 1.7 : 1.0) * buffAccMultiplier * surfaceGrip;
     }
 
     // --- B. BRAKING DYNAMICS: CADENCE BRAKING VS BRAKE LOCKUP SKID ---
@@ -1073,6 +1232,20 @@ export class GameEngine {
     this.world.update(this.posZ, dt, Math.abs(this.speed));
     this.updateParticles(dt);
 
+    // 7b. Real-Time 5G WebSocket Multiplayer Fleet Sync
+    if (this.multiplayer) {
+      this.multiplayer.updateLocalPosition(
+        this.posX,
+        this.posY,
+        this.posZ,
+        this.headingAngle,
+        this.state.speedKmh,
+        this.inputs.horn,
+        Boolean(this.inputs.boost && this.state.chaiBoost > 0)
+      );
+      this.multiplayer.tick(dt, this.posX, this.posZ);
+    }
+
     // Fade skid marks
     for (const skid of this.skidMarks) {
       const mat = skid.material as THREE.MeshBasicMaterial;
@@ -1105,6 +1278,41 @@ export class GameEngine {
         }
       }
     }
+
+    // 8c-1. Cruise Speed Mission Check (Maintain 40+ km/h for 2 minutes)
+    const cruiseGoal = this.missions.onCruiseSpeedTick(this.state.speedKmh, dt);
+    if (cruiseGoal) {
+      this.setStateMessage(`🎯 Goal Completed: ${cruiseGoal.title}! Tap Goals to claim ₹${cruiseGoal.rewardRupees} + ⚡ Speed Buff!`);
+    }
+
+    // 8c-2. Specific Dhabas Proximity Check (Visit 3 specific Dhabas)
+    const SPECIFIC_DHABAS = [
+      { id: 'sharma_dhaba', name: 'Sharmaji Chai & Nashta Tapri', zPeriod: 140 },
+      { id: 'punjab_dhaba', name: 'Sher-e-Punjab Highway Dhaba', zPeriod: 340 },
+      { id: 'munna_samosa', name: 'Munna Samosa Pullover Bay', zPeriod: 540 },
+    ];
+    for (const d of SPECIFIC_DHABAS) {
+      const periodZ = ((Math.floor(this.posZ) % 600) + 600) % 600;
+      if (Math.abs(periodZ - d.zPeriod) < 28 && Math.abs(this.posX) > 2.5) {
+        const dhabaGoal = this.missions.onDhabaVisited(d.id);
+        if (dhabaGoal) {
+          this.setStateMessage(`🎯 Goal Completed: ${dhabaGoal.title}! All 3 Dhabas visited! Tap Goals to claim ₹${dhabaGoal.rewardRupees} + ⚡ Speed Buff!`);
+        }
+      }
+    }
+
+    // 8c-3. Speed Buff Timer Countdown
+    if (this.speedBuffTimer > 0) {
+      this.speedBuffTimer = Math.max(0, this.speedBuffTimer - dt);
+      if (this.state.speedBuff) {
+        this.state.speedBuff.remainingSeconds = Math.ceil(this.speedBuffTimer);
+      }
+      if (this.speedBuffTimer <= 0) {
+        this.state.speedBuff = null;
+        this.setStateMessage('⚡ Speed Buff Finished. Returning to normal cruise.');
+      }
+    }
+
     this.missions.onSpeedCheck(this.state.speedKmh);
     this.missions.onDistanceCheck(this.state.distanceKm);
 
@@ -1129,8 +1337,12 @@ export class GameEngine {
     // 9. Camera Tracking
     this.updateCamera(dt);
 
-    // 10. Notify React HUD
-    this.notifyState();
+    // 10. Throttled React HUD State Notification (~13 Hz) to prevent DOM reflow lag
+    this.hudNotifyTimer += dt;
+    if (this.hudNotifyTimer >= 0.075) {
+      this.hudNotifyTimer = 0;
+      this.notifyState();
+    }
   }
 
   private checkRoadHazards() {
@@ -1342,11 +1554,11 @@ export class GameEngine {
 
   private updateCamera(dt: number) {
     if (this.state.activeCameraMode === 'chase') {
-      const camOffset = new THREE.Vector3(0, 3.2, -6.5);
-      camOffset.applyAxisAngle(new THREE.Vector3(0, 1, 0), this.headingAngle);
+      _camOffset.set(0, 3.2, -6.5);
+      _camOffset.applyAxisAngle(_axisY, this.headingAngle);
 
-      const targetCamPos = this.rickshaw.position.clone().add(camOffset);
-      this.camera.position.lerp(targetCamPos, dt * 7.5);
+      _targetCamPos.copy(this.rickshaw.position).add(_camOffset);
+      this.camera.position.lerp(_targetCamPos, dt * 7.5);
 
       if (this.cameraShake > 0.01) {
         this.camera.position.x += (Math.random() - 0.5) * this.cameraShake;
@@ -1354,26 +1566,25 @@ export class GameEngine {
         this.cameraShake = THREE.MathUtils.damp(this.cameraShake, 0, 5.0, dt);
       }
 
-      const lookTarget = this.rickshaw.position.clone().add(new THREE.Vector3(0, 1.4, 4));
-      lookTarget.applyAxisAngle(new THREE.Vector3(0, 1, 0), this.headingAngle * 0.2);
-      this.camera.lookAt(lookTarget);
+      _lookTarget.set(0, 1.4, 4);
+      _lookTarget.applyAxisAngle(_axisY, this.headingAngle * 0.2);
+      _lookTarget.add(this.rickshaw.position);
+      this.camera.lookAt(_lookTarget);
 
       const targetFov = 58 + (this.speed / this.BOOST_MAX_SPEED) * 16;
       this.camera.fov = THREE.MathUtils.damp(this.camera.fov, targetFov, 4.0, dt);
       this.camera.updateProjectionMatrix();
     } else if (this.state.activeCameraMode === 'cockpit') {
       // Driver Eye POV sitting right on the driver saddle
-      const driverEye = this.rickshaw.position.clone().add(new THREE.Vector3(0, 1.55, 0.38));
-      this.camera.position.copy(driverEye);
+      _driverEye.copy(this.rickshaw.position).add(_vecB.set(0, 1.55, 0.38));
+      this.camera.position.copy(_driverEye);
 
-      const lookTarget = this.rickshaw.position.clone().add(
-        new THREE.Vector3(
-          Math.sin(this.headingAngle) * 16,
-          1.45,
-          Math.cos(this.headingAngle) * 16
-        )
-      );
-      this.camera.lookAt(lookTarget);
+      _lookTarget.set(
+        Math.sin(this.headingAngle) * 16,
+        1.45,
+        Math.cos(this.headingAngle) * 16
+      ).add(this.rickshaw.position);
+      this.camera.lookAt(_lookTarget);
       this.camera.fov = 72;
       this.camera.updateProjectionMatrix();
     }
@@ -1411,6 +1622,208 @@ export class GameEngine {
     loop();
   }
 
+  public getCanvasElement(): HTMLCanvasElement | null {
+    return this.renderer ? this.renderer.domElement : null;
+  }
+
+  // =========================================================================
+  // 3D WORLD QR TARGET DISCOVERY & DIGITAL DHABA REWARDS
+  // =========================================================================
+  public getNearbyQrTargets(): DhabaQrTarget[] {
+    const targets: DhabaQrTarget[] = [];
+    const playerZ = this.posZ;
+    const playerX = this.posX;
+
+    // 1. Roadside Chai Break Stalls from world
+    if (this.world && this.world.chaiStalls) {
+      this.world.chaiStalls.forEach((stall, idx) => {
+        const dz = stall.z - playerZ;
+        const dx = stall.x - playerX;
+        const dist = Math.round(Math.hypot(dx, dz));
+        if (dz > -20 && dz < 180) {
+          targets.push({
+            id: `dhaba_stall_${idx}`,
+            title: 'Munna Chai Tapri & Pullover Bay',
+            locationLabel: `NH-48 Km ${Math.round(stall.z / 10)} Pullover Bay`,
+            code: 'MUNNA-SAMOSA-24',
+            category: 'Dhaba',
+            distanceMeters: dist,
+            direction: dx < 0 ? 'Left' : 'Right',
+            inScanRange: dist <= 45,
+            reward: {
+              type: 'repair',
+              title: 'Munna Tapri Samosa & Full Auto Overhaul',
+              amount: 100,
+              description: 'Crispy aloo samosa, adrak tea & complete 100% vehicle repair.',
+              discountText: 'FREE SERVICE + ₹100',
+              badge: '🛠️ 100% REPAIR',
+            },
+          });
+        }
+      });
+    }
+
+    // 2. Procedural Roadside Targets along highway sectors
+    const currentSector = Math.floor(playerZ / 100);
+    const sectorOffsets = [currentSector, currentSector + 1];
+
+    sectorOffsets.forEach((sec) => {
+      const secZ = sec * 100 + 40;
+      const dz = secZ - playerZ;
+      if (dz < -25 || dz > 160) return;
+
+      const variant = Math.abs(sec) % 5;
+      if (variant === 0) {
+        const dx = -10.5 - playerX;
+        const dist = Math.round(Math.hypot(dx, dz));
+        targets.push({
+          id: `sharma_dhaba_${sec}`,
+          title: 'Sharmaji Chai Dhaba Counter QR',
+          locationLabel: `NH-48 Left Highway Shoulder (Sector ${sec})`,
+          code: 'SHARMA-CHAI-99',
+          category: 'Dhaba',
+          distanceMeters: dist,
+          direction: 'Left',
+          inScanRange: dist <= 45,
+          reward: {
+            type: 'chai',
+            title: 'Sharmaji Cutting Chai Overdrive',
+            amount: 150,
+            description: '100% Instant Chai Stamina Boost + ₹150 Rupee Cash Bounty.',
+            discountText: '100% BOOST + ₹150',
+            badge: '☕ OVERDRIVE',
+          },
+        });
+      } else if (variant === 1) {
+        const dx = 10.5 - playerX;
+        const dist = Math.round(Math.hypot(dx, dz));
+        targets.push({
+          id: `nh48_milestone_${sec}`,
+          title: 'NH-48 Green Milestone QR',
+          locationLabel: `Golden Quadrilateral Milestone (Km ${sec * 10})`,
+          code: 'NH48-TOLL-FREE',
+          category: 'Milestone',
+          distanceMeters: dist,
+          direction: 'Right',
+          inScanRange: dist <= 45,
+          reward: {
+            type: 'vip',
+            title: 'NH-48 FASTag Highway VIP Pass',
+            amount: 300,
+            description: 'VIP Toll clearance & ₹300 bonus rupees for smooth transit.',
+            discountText: '₹300 BONUS + VIP PASS',
+            badge: '🛣️ FASTAG VIP',
+          },
+        });
+      } else if (variant === 2) {
+        const dx = -12.0 - playerX;
+        const dist = Math.round(Math.hypot(dx, dz));
+        targets.push({
+          id: `haveli_royale_${sec}`,
+          title: 'Grand Rajput Haveli Gateway QR',
+          locationLabel: `Heritage Sandstone Jaali Archway`,
+          code: 'HAVELI-ROYALE-777',
+          category: 'Haveli',
+          distanceMeters: dist,
+          direction: 'Left',
+          inScanRange: dist <= 45,
+          reward: {
+            type: 'cash',
+            title: 'Maharaja Heritage Darbar Bounty',
+            amount: 500,
+            description: 'Royal Darbar jackpot: ₹500 golden rupee windfall!',
+            discountText: '₹500 MEGA CASH',
+            badge: '👑 ROYAL JACKPOT',
+          },
+        });
+      } else if (variant === 3) {
+        const dx = 1.5 - playerX;
+        const dist = Math.round(Math.hypot(dx, dz));
+        targets.push({
+          id: `truck_art_${sec}`,
+          title: 'Tata Highway Truck Art QR',
+          locationLabel: `Rear "Horn OK Please" Painted Board`,
+          code: 'NITRO-DHABA-TURBO',
+          category: 'Highway',
+          distanceMeters: dist,
+          direction: 'Ahead',
+          inScanRange: dist <= 45,
+          reward: {
+            type: 'speed',
+            title: 'Desi Nitro Turbo Tune-up',
+            amount: 120,
+            description: 'Instant Nitro Overclock surge & high-RPM 2-stroke tuning.',
+            discountText: 'TURBO KICK + ₹120',
+            badge: '⚡ TURBO SURGE',
+          },
+        });
+      } else {
+        const dx = 11.0 - playerX;
+        const dist = Math.round(Math.hypot(dx, dz));
+        targets.push({
+          id: `desinet_tower_${sec}`,
+          title: 'DesiNet 5G VoNR Highway Tower QR',
+          locationLabel: `AirJio 5G Monopole Transceiver`,
+          code: 'AIRJIO-5G-VIP',
+          category: 'DesiNet',
+          distanceMeters: dist,
+          direction: 'Right',
+          inScanRange: dist <= 45,
+          reward: {
+            type: 'cash',
+            title: 'DesiNet 5G High-Speed Highway Pass',
+            amount: 250,
+            description: 'Unlimited 5G DesiNet data uplink & ₹250 cash reward.',
+            discountText: '₹250 REWARD + 5G PASS',
+            badge: '📶 5G UNLIMITED',
+          },
+        });
+      }
+    });
+
+    return targets.sort((a, b) => a.distanceMeters - b.distanceMeters);
+  }
+
+  public redeemDhabaReward(reward: DhabaQrReward): { success: boolean; message: string } {
+    if (reward.type === 'cash') {
+      this.state.totalEarnings += reward.amount;
+      sounds.playCoin();
+    } else if (reward.type === 'chai') {
+      this.state.chaiBoost = 100;
+      this.state.chaiCount += 2;
+      this.state.totalEarnings += reward.amount;
+      sounds.playChaiBoost();
+    } else if (reward.type === 'repair') {
+      this.state.condition = 100;
+      this.state.totalEarnings += reward.amount;
+      sounds.playRepairWrench();
+    } else if (reward.type === 'speed') {
+      this.speed = Math.min(this.BOOST_MAX_SPEED, this.speed + 7);
+      this.state.chaiBoost = Math.min(100, this.state.chaiBoost + 40);
+      this.state.totalEarnings += reward.amount;
+      sounds.playChaiBoost();
+    } else if (reward.type === 'vip') {
+      this.state.totalEarnings += reward.amount;
+      this.state.condition = Math.min(100, this.state.condition + 25);
+      sounds.playCoin();
+    }
+
+    sounds.playCouponUnlock();
+    // Mark Dhaba visited for Grand Dhaba Hop mission
+    if (reward.type === 'chai') {
+      this.missions.onDhabaVisited('sharma_dhaba');
+    } else if (reward.type === 'repair') {
+      this.missions.onDhabaVisited('munna_samosa');
+    } else {
+      this.missions.onDhabaVisited('punjab_dhaba');
+    }
+
+    const msg = `🎉 Dhaba Coupon Redeemed: ${reward.title} (${reward.discountText})!`;
+    this.setStateMessage(msg);
+    this.notifyState();
+    return { success: true, message: msg };
+  }
+
   public dispose() {
     if (this.animFrameId !== null) {
       cancelAnimationFrame(this.animFrameId);
@@ -1422,6 +1835,9 @@ export class GameEngine {
     sounds.stopEngine();
     sounds.stopAmbientRaga();
     sounds.setSkidding(false);
+    if (this.multiplayer) {
+      this.multiplayer.dispose();
+    }
     this.renderer.dispose();
     if (this.mount.contains(this.renderer.domElement)) {
       this.mount.removeChild(this.renderer.domElement);

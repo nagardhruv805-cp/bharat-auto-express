@@ -33,6 +33,8 @@ import {
 } from './models';
 import { getRoadTexture, getRangoliTexture } from './textures';
 
+const _tempWorldPos = new THREE.Vector3();
+
 export interface TrafficEntity {
   mesh: THREE.Group;
   speed: number;
@@ -648,9 +650,8 @@ export class WorldManager {
       item.mesh.rotation.y += delta * 2.5;
       item.mesh.position.y = item.baseY + Math.sin(time + i) * 0.15;
 
-      const worldPos = new THREE.Vector3();
-      item.mesh.getWorldPosition(worldPos);
-      if (playerZ - worldPos.z > 60) {
+      item.mesh.getWorldPosition(_tempWorldPos);
+      if (playerZ - _tempWorldPos.z > 60) {
         item.active = false;
         this.collectibles.splice(i, 1);
       }

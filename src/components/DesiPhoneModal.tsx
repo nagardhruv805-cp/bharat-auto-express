@@ -65,7 +65,7 @@ export const DesiPhoneModal: React.FC<DesiPhoneModalProps> = ({
   const [isUltraVolume, setIsUltraVolume] = useState(true);
 
   // Call session states
-  const [callState, setCallState] = useState<'idle' | 'dialing' | 'connected' | 'ended'>('idle');
+  const [callState, setCallState] = useState<'idle' | 'incoming' | 'dialing' | 'connected' | 'ended'>('idle');
   const [activeContact, setActiveContact] = useState<{
     id?: string;
     name: string;
@@ -104,17 +104,31 @@ export const DesiPhoneModal: React.FC<DesiPhoneModalProps> = ({
         voiceRate: 1.0,
         dialogues: [],
       };
-      startCallSession(contact, true);
-      onDismissIncomingAlert();
+      setActiveContact(contact);
+      setCallState('incoming');
     }
   }, [incomingCallAlert, isOpen]);
 
   // Clean up on unmount or close
   useEffect(() => {
     return () => {
-      endCallSession(false);
+      handleCutCall(false);
     };
   }, []);
+
+  // Keyboard shortcut: Press ESC or 'C' key while on call / incoming call to Cut Call
+  useEffect(() => {
+    const handlePhoneKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (callState !== 'idle' && (e.key === 'Escape' || e.key === 'c' || e.key === 'C')) {
+        e.preventDefault();
+        e.stopPropagation();
+        handleCutCall(true);
+      }
+    };
+    window.addEventListener('keydown', handlePhoneKeyDown);
+    return () => window.removeEventListener('keydown', handlePhoneKeyDown);
+  }, [callState, activeContact]);
 
   // Call timer effect
   useEffect(() => {
@@ -158,31 +172,8 @@ export const DesiPhoneModal: React.FC<DesiPhoneModalProps> = ({
     setCallTimer(0);
 
     if (isIncoming) {
-      // Pick up immediately
-      sounds.stopPhoneRingtone();
-      sounds.playCallConnected();
-      setCallState('connected');
-
-      // Log call
-      const newLog: CallLog = {
-        id: `call-${Date.now()}`,
-        name: contact.name,
-        number: contact.number,
-        avatar: contact.avatar,
-        type: 'incoming',
-        time: 'Just now',
-      };
-      setCallLogs((prev) => [newLog, ...prev]);
-
-      // Trigger dialogue
-      const fullContact = PHONE_CONTACTS.find((c) => c.id === contact.id);
-      const dialogue = fullContact?.dialogues[0];
-      const greeting =
-        dialogue?.greeting ||
-        `Haan hello! ${contact.name} here. Auto chalate waqt phone uthane ka shukriya! Drive carefully!`;
-      setCurrentDialogueText(greeting);
-      setCurrentChoices(dialogue?.choices || []);
-      speakCallerVoice(greeting, contact.voicePitch, contact.voiceRate);
+      // Incoming ringing mode
+      setCallState('incoming');
     } else {
       // Outgoing call
       setCallState('dialing');
@@ -226,6 +217,77 @@ export const DesiPhoneModal: React.FC<DesiPhoneModalProps> = ({
     }
   };
 
+  // Answer an incoming call
+  const handleAnswerIncomingCall = () => {
+    if (!activeContact) return;
+    sounds.stopPhoneRingtone();
+    sounds.playCallConnected();
+    onDismissIncomingAlert();
+    engine?.dismissIncomingCall();
+    setCallState('connected');
+    setCallTimer(0);
+
+    // Log call
+    const newLog: CallLog = {
+      id: `call-${Date.now()}`,
+      name: activeContact.name,
+      number: activeContact.number,
+      avatar: activeContact.avatar,
+      type: 'incoming',
+      time: 'Just now',
+    };
+    setCallLogs((prev) => [newLog, ...prev]);
+
+    // Trigger dialogue
+    const fullContact = PHONE_CONTACTS.find((c) => c.id === activeContact.id);
+    const dialogue = fullContact?.dialogues[0];
+    const greeting =
+      dialogue?.greeting ||
+      `Haan hello! ${activeContact.name} here. Auto chalate waqt phone uthane ka shukriya! Drive carefully!`;
+    setCurrentDialogueText(greeting);
+    setCurrentChoices(dialogue?.choices || []);
+    speakCallerVoice(greeting, activeContact.voicePitch, activeContact.voiceRate);
+  };
+
+  // Cut call - ends incoming, dialing, or connected calls
+  const handleCutCall = (playHangupSound = true) => {
+    if (ringbackTimeoutRef.current) {
+      clearTimeout(ringbackTimeoutRef.current);
+      ringbackTimeoutRef.current = null;
+    }
+    sounds.stopPhoneRingtone();
+    stopCallerVoice();
+    if (playHangupSound) {
+      sounds.playCallHangup();
+    }
+
+    if (callState === 'incoming') {
+      if (activeContact) {
+        const missedLog: CallLog = {
+          id: `call-${Date.now()}`,
+          name: activeContact.name,
+          number: activeContact.number,
+          avatar: activeContact.avatar,
+          type: 'missed',
+          time: 'Just now',
+        };
+        setCallLogs((prev) => [missedLog, ...prev]);
+      }
+      onDismissIncomingAlert();
+      engine?.dismissIncomingCall();
+    }
+
+    setCallState('ended');
+    setTimeout(() => {
+      setCallState('idle');
+      setActiveContact(null);
+      setCurrentDialogueText('');
+      setCurrentChoices([]);
+    }, 1100);
+  };
+
+  const endCallSession = handleCutCall;
+
   const handleSelectChoice = (choice: DialogueChoice) => {
     sounds.playPhoneClick();
     setCurrentDialogueText(choice.reply);
@@ -245,24 +307,6 @@ export const DesiPhoneModal: React.FC<DesiPhoneModalProps> = ({
     } else if (choice.perkTrigger === 'police_pass' && engine) {
       engine.setStateMessage('👮 Hawaldar Patil granted highway clearance! Keep left.');
     }
-  };
-
-  const endCallSession = (playHangupSound = true) => {
-    if (ringbackTimeoutRef.current) {
-      clearTimeout(ringbackTimeoutRef.current);
-      ringbackTimeoutRef.current = null;
-    }
-    stopCallerVoice();
-    if (playHangupSound) {
-      sounds.playCallHangup();
-    }
-    setCallState('ended');
-    setTimeout(() => {
-      setCallState('idle');
-      setActiveContact(null);
-      setCurrentDialogueText('');
-      setCurrentChoices([]);
-    }, 1200);
   };
 
   // Dialpad handlers
@@ -524,9 +568,10 @@ export const DesiPhoneModal: React.FC<DesiPhoneModalProps> = ({
                 </div>
 
                 <div className="inline-block px-3 py-0.5 rounded-full bg-white/10 text-emerald-300 font-medium text-xs mb-1 border border-white/10">
+                  {callState === 'incoming' && '🔔 Incoming Call • AirJio 5G'}
                   {callState === 'dialing' && 'Connecting on AirJio 5G...'}
                   {callState === 'connected' && `In Call • ${formatCallTime(callTimer)}`}
-                  {callState === 'ended' && 'Call Disconnected'}
+                  {callState === 'ended' && 'Call Cut / Disconnected'}
                 </div>
 
                 <h3 className="text-lg font-bold text-white tracking-wide">{activeContact.name}</h3>
@@ -536,6 +581,17 @@ export const DesiPhoneModal: React.FC<DesiPhoneModalProps> = ({
 
               {/* Spoken Dialogue Speech Subtitles & Animated Audio Wave */}
               <div className="flex-1 flex flex-col justify-center my-2 px-1">
+                {callState === 'incoming' && (
+                  <div className="text-center py-4 bg-zinc-900/80 border border-amber-500/30 rounded-2xl p-4 my-2 backdrop-blur-md">
+                    <p className="text-xs text-amber-300 font-bold animate-pulse mb-1 flex items-center justify-center gap-1.5">
+                      <PhoneCall className="w-4 h-4 text-emerald-400" /> Incoming Voice Call...
+                    </p>
+                    <p className="text-[11px] text-zinc-300">
+                      Auto-rickshaw driver! Tap Answer to talk or Cut Call to decline.
+                    </p>
+                  </div>
+                )}
+
                 {callState === 'connected' && (
                   <div className="bg-zinc-900/90 border border-white/15 rounded-2xl p-3.5 backdrop-blur-md shadow-inner max-h-[200px] overflow-y-auto scrollbar-thin">
                     {/* Simulated Voice Waveform */}
@@ -586,64 +642,97 @@ export const DesiPhoneModal: React.FC<DesiPhoneModalProps> = ({
                 )}
 
                 {callState === 'ended' && (
-                  <div className="text-center py-6 text-rose-400 font-semibold text-sm">
-                    Call Ended. Shubh Yatra!
+                  <div className="text-center py-6 text-rose-400 font-bold text-sm bg-rose-950/20 rounded-2xl border border-rose-900/30 p-3">
+                    ❌ Call Cut. Shubh Yatra!
                   </div>
                 )}
               </div>
 
-              {/* Call Controls: Mute, Speaker 300%, Hangup */}
-              <div className="pb-2">
-                <div className="flex justify-center items-center space-x-6 mb-4">
-                  <button
-                    onClick={() => setIsMicMuted(!isMicMuted)}
-                    className={`p-3 rounded-full transition-colors cursor-pointer ${
-                      isMicMuted
-                        ? 'bg-rose-500/30 text-rose-300'
-                        : 'bg-white/10 text-white hover:bg-white/20'
-                    }`}
-                    title="Mute Mic"
-                  >
-                    {isMicMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-                  </button>
+              {/* Call Controls: Answer or Cut Call */}
+              <div className="pb-3">
+                {callState === 'incoming' ? (
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="flex items-center justify-center gap-4 w-full px-2">
+                      {/* Green Answer Call Button */}
+                      <button
+                        onClick={handleAnswerIncomingCall}
+                        className="flex-1 py-3.5 px-4 rounded-2xl bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-xl shadow-emerald-950/80 border border-emerald-400/40 active:scale-95 transition cursor-pointer"
+                        title="Answer Incoming Call"
+                      >
+                        <PhoneCall className="w-4 h-4 fill-current animate-bounce" />
+                        <span>Answer</span>
+                      </button>
 
-                  <button
-                    onClick={() => {
-                      sounds.playPhoneClick();
-                      setIsSpeakerOn(!isSpeakerOn);
-                    }}
-                    className={`p-3 rounded-full transition-colors cursor-pointer ${
-                      isSpeakerOn
-                        ? 'bg-amber-500/30 text-amber-300'
-                        : 'bg-white/10 text-white hover:bg-white/20'
-                    }`}
-                    title="Toggle Speakerphone (Ultra Volume 300%)"
-                  >
-                    {isSpeakerOn ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
-                  </button>
+                      {/* Red Cut Call Button */}
+                      <button
+                        onClick={() => handleCutCall(true)}
+                        className="flex-1 py-3.5 px-4 rounded-2xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-xl shadow-rose-950/80 border border-rose-400/40 active:scale-95 transition cursor-pointer group"
+                        title="Cut Call (Reject)"
+                      >
+                        <PhoneOff className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                        <span className="uppercase tracking-wider">Cut Call</span>
+                      </button>
+                    </div>
+                    <span className="text-[10px] text-zinc-400 font-mono">Press [ESC] or Tap to Cut Call</span>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex justify-center items-center space-x-6 mb-4">
+                      <button
+                        onClick={() => setIsMicMuted(!isMicMuted)}
+                        className={`p-3 rounded-full transition-colors cursor-pointer ${
+                          isMicMuted
+                            ? 'bg-rose-500/30 text-rose-300'
+                            : 'bg-white/10 text-white hover:bg-white/20'
+                        }`}
+                        title="Mute Mic"
+                      >
+                        {isMicMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+                      </button>
 
-                  <button
-                    onClick={() => {
-                      sounds.playPhoneClick();
-                      setHaloMode(haloMode === 'breathing' ? 'party' : 'breathing');
-                    }}
-                    className="p-3 rounded-full bg-white/10 text-amber-300 hover:bg-white/20 transition-colors cursor-pointer"
-                    title="Toggle Halo Light Effect"
-                  >
-                    <Flame className="w-5 h-5" />
-                  </button>
-                </div>
+                      <button
+                        onClick={() => {
+                          sounds.playPhoneClick();
+                          setIsSpeakerOn(!isSpeakerOn);
+                        }}
+                        className={`p-3 rounded-full transition-colors cursor-pointer ${
+                          isSpeakerOn
+                            ? 'bg-amber-500/30 text-amber-300'
+                            : 'bg-white/10 text-white hover:bg-white/20'
+                        }`}
+                        title="Toggle Speakerphone (Ultra Volume 300%)"
+                      >
+                        {isSpeakerOn ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+                      </button>
 
-                {/* Big Red Hangup Button */}
-                <div className="flex justify-center">
-                  <button
-                    onClick={() => endCallSession(true)}
-                    className="w-16 h-16 rounded-full bg-rose-600 hover:bg-rose-500 text-white flex items-center justify-center shadow-lg shadow-rose-900/50 active:scale-95 transition-transform cursor-pointer"
-                    title="End Call"
-                  >
-                    <PhoneOff className="w-7 h-7" />
-                  </button>
-                </div>
+                      <button
+                        onClick={() => {
+                          sounds.playPhoneClick();
+                          setHaloMode(haloMode === 'breathing' ? 'party' : 'breathing');
+                        }}
+                        className="p-3 rounded-full bg-white/10 text-amber-300 hover:bg-white/20 transition-colors cursor-pointer"
+                        title="Toggle Halo Light Effect"
+                      >
+                        <Flame className="w-5 h-5" />
+                      </button>
+                    </div>
+
+                    {/* Big Dedicated Red Cut Call Button */}
+                    <div className="flex flex-col items-center gap-1.5">
+                      <button
+                        onClick={() => handleCutCall(true)}
+                        className="px-8 py-3.5 rounded-2xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2.5 shadow-xl shadow-rose-950/80 border border-rose-400/40 active:scale-95 transition-all cursor-pointer group"
+                        title="Cut Call (Disconnect)"
+                      >
+                        <div className="w-7 h-7 rounded-full bg-rose-700/80 flex items-center justify-center group-hover:scale-110 transition-transform shadow-inner">
+                          <PhoneOff className="w-4 h-4 fill-current" />
+                        </div>
+                        <span className="tracking-wider uppercase">Cut Call</span>
+                      </button>
+                      <span className="text-[10px] text-zinc-400 font-mono">Press [ESC] to Cut Call</span>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           )}
@@ -1042,6 +1131,35 @@ export const DesiPhoneModal: React.FC<DesiPhoneModalProps> = ({
                       </div>
                       <PhoneCall className="w-4 h-4 text-purple-400 shrink-0" />
                     </button>
+
+                    {/* Test Incoming Call (Simulate) */}
+                    <button
+                      onClick={() => {
+                        sounds.playPhoneClick();
+                        const possibleCallers = [
+                          { contactId: 'maa', name: 'Maa (Mom)', avatar: '👵', relation: 'Family ❤️', number: '98200-10800' },
+                          { contactId: 'munna_chai', name: 'Munna Chaiwala', avatar: '☕', relation: 'Chai Guru ☕', number: '98990-77882' },
+                          { contactId: 'traffic_patil', name: 'Hawaldar Patil', avatar: '👮‍♂️', relation: 'NH-48 Chowki 👮', number: '103' },
+                          { contactId: 'sharma_passenger', name: 'Sharma Ji', avatar: '💼', relation: 'VIP Passenger 💼', number: '98765-43210' },
+                        ];
+                        const chosen = possibleCallers[Math.floor(Math.random() * possibleCallers.length)];
+                        engine?.triggerIncomingCall(chosen);
+                      }}
+                      className="w-full p-2.5 rounded-xl bg-rose-950/40 hover:bg-rose-900/50 border border-rose-500/30 flex items-center justify-between text-left transition-all active:scale-98 cursor-pointer group"
+                    >
+                      <div className="flex items-center space-x-2.5">
+                        <div className="p-2 rounded-lg bg-rose-600/30 text-rose-400 group-hover:scale-110 transition-transform">
+                          <PhoneOff className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h4 className="text-xs font-semibold text-rose-200">Test Incoming Call & Cut Call</h4>
+                          <p className="text-[10px] text-zinc-400">Trigger test incoming call to practice answering or cutting</p>
+                        </div>
+                      </div>
+                      <span className="text-[9px] bg-rose-500/20 text-rose-300 px-2 py-0.5 rounded font-mono font-bold">
+                        RING 🔔
+                      </span>
+                    </button>
                   </div>
                 </div>
 
@@ -1055,7 +1173,7 @@ export const DesiPhoneModal: React.FC<DesiPhoneModalProps> = ({
 
             {/* 6. 5G INTERNET & COLOROS BROWSER TAB */}
             {activeTab === 'internet' && (
-              <PhoneInternetApp />
+              <PhoneInternetApp engine={engine} />
             )}
           </div>
 

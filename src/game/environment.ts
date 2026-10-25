@@ -39,15 +39,15 @@ export class DynamicEnvironment {
   private starMaterial: THREE.PointsMaterial;
   private skyMaterial: THREE.ShaderMaterial;
 
-  // Weather Particle Systems
+  // Weather Particle Systems (Optimized count for smooth 60fps)
   public currentWeather: WeatherType = 'sunny';
   private rainParticles: THREE.Points;
   private rainPositions: Float32Array;
-  private rainCount = 2200;
+  private rainCount = 750;
 
   private dustParticles: THREE.Points;
   private dustPositions: Float32Array;
-  private dustCount = 1400;
+  private dustCount = 450;
 
   // Weather dynamics & timers
   private lightningTimer = 0;
@@ -74,19 +74,19 @@ export class DynamicEnvironment {
     this.scene = scene;
     this.renderer = renderer;
 
-    // 1. Directional Sun/Moon Light
+    // 1. Directional Sun/Moon Light (Optimized shadow map 1024x1024 & tighter frustum)
     this.sunLight = new THREE.DirectionalLight(0xffedd5, 2.8);
     this.sunLight.castShadow = true;
-    this.sunLight.shadow.mapSize.width = 2048;
-    this.sunLight.shadow.mapSize.height = 2048;
+    this.sunLight.shadow.mapSize.width = 1024;
+    this.sunLight.shadow.mapSize.height = 1024;
     this.sunLight.shadow.camera.near = 10;
-    this.sunLight.shadow.camera.far = 250;
-    this.sunLight.shadow.camera.left = -30;
-    this.sunLight.shadow.camera.right = 30;
-    this.sunLight.shadow.camera.top = 30;
-    this.sunLight.shadow.camera.bottom = -30;
-    this.sunLight.shadow.bias = -0.0005;
-    this.sunLight.shadow.normalBias = 0.02;
+    this.sunLight.shadow.camera.far = 180;
+    this.sunLight.shadow.camera.left = -22;
+    this.sunLight.shadow.camera.right = 22;
+    this.sunLight.shadow.camera.top = 22;
+    this.sunLight.shadow.camera.bottom = -22;
+    this.sunLight.shadow.bias = -0.0008;
+    this.sunLight.shadow.normalBias = 0.03;
     this.scene.add(this.sunLight);
 
     // 2. Hemisphere Fill Light

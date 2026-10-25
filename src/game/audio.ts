@@ -2,7 +2,14 @@
 // Ultra-realistic Indian soundscape with 2-stroke engine, dual-tone pressure horns,
 // tire skid screech, suspension clunks, ambient street life, and 4-channel in-dash radio!
 
-export type RadioStationId = 'off' | 'bollywood' | 'folk' | 'news' | 'devotional';
+export type RadioStationId =
+  | 'off'
+  | 'bollywood'
+  | 'highway_beats'
+  | 'classical_sitar'
+  | 'folk'
+  | 'news'
+  | 'devotional';
 
 export interface RadioStationInfo {
   id: RadioStationId;
@@ -10,14 +17,90 @@ export interface RadioStationInfo {
   frequency: string;
   genre: string;
   tagline: string;
+  badge?: string;
+  color?: string;
+  djName?: string;
+  trackName?: string;
 }
 
 export const RADIO_STATIONS: RadioStationInfo[] = [
-  { id: 'off', name: 'Radio Off', frequency: '--.- FM', genre: 'Muted', tagline: 'Cassette deck idle' },
-  { id: 'bollywood', name: 'Radio Mirchi Nostalgia', frequency: '98.3 FM', genre: 'Retro Bollywood', tagline: 'Kishore & Lata Classic Golden Melodies' },
-  { id: 'folk', name: 'Desi Dholak & Bhangra Beats', frequency: '104.8 FM', genre: 'Punjabi & Rajasthani Folk', tagline: 'Energetic Punjabi Dholak & Tumbi Dhun' },
-  { id: 'news', name: 'Akashvani Vividh Bharati', frequency: '102.6 FM', genre: 'National News & Bulletins', tagline: 'All India Radio Hourly Samachar Bulletin' },
-  { id: 'devotional', name: 'Mandir Bhajan & Bansuri', frequency: '107.1 FM', genre: 'Spiritual Raga & Flute', tagline: 'Soothing Evening Santoor & Tanpura Raga' },
+  {
+    id: 'off',
+    name: 'Radio Power Off',
+    frequency: '--.- FM',
+    genre: 'Muted',
+    tagline: 'Cassette deck idle • Tap any station to tune in',
+    badge: 'OFF',
+    color: 'zinc',
+    djName: 'Deck Standby',
+    trackName: 'Silence on NH-48',
+  },
+  {
+    id: 'bollywood',
+    name: 'Radio Mirchi Nostalgia',
+    frequency: '98.3 FM',
+    genre: 'Retro Bollywood',
+    tagline: 'Kishore Kumar, Lata Mangeshkar & RD Burman Classics',
+    badge: 'HOT ⭐',
+    color: 'amber',
+    djName: 'RJ Sayema',
+    trackName: 'Pal Pal Dil Ke Paas (Golden Melodies)',
+  },
+  {
+    id: 'highway_beats',
+    name: 'NH-48 Highway Beats',
+    frequency: '93.5 FM',
+    genre: 'Highway Beats',
+    tagline: 'High-Octane Dholak, Punjabi Tumbi & Trucker Bass Overdrive',
+    badge: 'BASS ⚡',
+    color: 'rose',
+    djName: 'DJ Gurdas',
+    trackName: 'Mundian To Bach Ke (Highway Club Mix)',
+  },
+  {
+    id: 'classical_sitar',
+    name: 'All India Classical Sitar',
+    frequency: '107.1 FM',
+    genre: 'Classical Sitar',
+    tagline: 'Pandit Ji Sitar Jhala, Santoor Dulcimer & Morning Ragas',
+    badge: 'RAGA 🛕',
+    color: 'teal',
+    djName: 'Ustad Vilayat Khan Archival',
+    trackName: 'Raga Bhairav Sitar Jhala (All India Radio)',
+  },
+  {
+    id: 'folk',
+    name: 'Desi Dholak & Bhangra Beats',
+    frequency: '104.8 FM',
+    genre: 'Punjabi & Rajasthani Folk',
+    tagline: 'Energetic Punjabi Dholak, Khadtaal & Marwar Tumbi',
+    badge: 'DESI 🌾',
+    color: 'orange',
+    djName: 'Folk Radio Jaipur',
+    trackName: 'Ghoomar Dholak & Kesariya Balam Dhun',
+  },
+  {
+    id: 'news',
+    name: 'Akashvani Vividh Bharati',
+    frequency: '102.6 FM',
+    genre: 'National News & Bulletins',
+    tagline: 'All India Radio Hourly Samachar & Weather Bulletins',
+    badge: 'AIR 🎙️',
+    color: 'blue',
+    djName: 'Ramanathan Sharma (AIR News)',
+    trackName: 'Pradhan Mantri Gram Sadak Yojana Bulletin',
+  },
+  {
+    id: 'devotional',
+    name: 'Mandir Bhajan & Bansuri',
+    frequency: '101.4 FM',
+    genre: 'Spiritual Raga & Flute',
+    tagline: 'Soothing Evening Santoor, Temple Bells & Bamboo Bansuri',
+    badge: 'DIVINE 🙏',
+    color: 'indigo',
+    djName: 'Vrindavan Ashrams',
+    trackName: 'Shri Krishna Govind Hare Murari Bhajan',
+  },
 ];
 
 class SoundEngine {
@@ -378,7 +461,7 @@ class SoundEngine {
   }
 
   public nextRadioStation(): RadioStationInfo {
-    const ids: RadioStationId[] = ['off', 'bollywood', 'folk', 'news', 'devotional'];
+    const ids: RadioStationId[] = ['off', 'bollywood', 'highway_beats', 'classical_sitar', 'folk', 'news', 'devotional'];
     const currentIdx = ids.indexOf(this.currentStation);
     const nextIdx = (currentIdx + 1) % ids.length;
     this.setRadioStation(ids[nextIdx]);
@@ -474,11 +557,11 @@ class SoundEngine {
         }
       }, 260); // 115 BPM groove
 
-    } else if (this.currentStation === 'folk') {
-      // Energetic Bhangra / Dholak Rhythm
+    } else if (this.currentStation === 'folk' || this.currentStation === 'highway_beats') {
+      // Energetic Bhangra / Dholak Rhythm & High-Octane Highway Beats
       const tumbiNotes = [293.66, 329.63, 369.99, 440.0, 587.33]; // D, E, F#, A, D5
       this.radioInterval = window.setInterval(() => {
-        if (!this.ctx || this.isMuted || this.currentStation !== 'folk') return;
+        if (!this.ctx || this.isMuted || (this.currentStation !== 'folk' && this.currentStation !== 'highway_beats')) return;
         const now = this.ctx.currentTime;
         const step = this.radioBeatIndex % 16;
         this.radioBeatIndex++;
@@ -572,11 +655,11 @@ class SoundEngine {
         }
       }, 300);
 
-    } else if (this.currentStation === 'devotional') {
-      // Spiritual Santoor, Tanpura & Mandir Bells (Raga Bhairav / Shivranjani)
+    } else if (this.currentStation === 'devotional' || this.currentStation === 'classical_sitar') {
+      // Classical Sitar Jhala, Spiritual Santoor, Tanpura & Mandir Bells (Raga Bhairav / Shivranjani)
       const ragaNotes = [261.63, 293.66, 311.13, 392.0, 440.0, 523.25]; // C, D, Eb, G, A, C5
       this.radioInterval = window.setInterval(() => {
-        if (!this.ctx || this.isMuted || this.currentStation !== 'devotional') return;
+        if (!this.ctx || this.isMuted || (this.currentStation !== 'devotional' && this.currentStation !== 'classical_sitar')) return;
         const now = this.ctx.currentTime;
         const step = this.radioBeatIndex % 6;
         this.radioBeatIndex++;
@@ -1455,6 +1538,60 @@ class SoundEngine {
       gain.connect(this.ctx.destination);
       osc.start(now + t);
       osc.stop(now + t + 0.07);
+    });
+  }
+
+  // =========================================================================
+  // 11. QR SCANNER & DIGITAL DHABA COUPON AUDIO
+  // =========================================================================
+  public playQrScanBeep() {
+    if (this.isMuted) return;
+    this.initCtx();
+    if (!this.ctx) return;
+
+    const now = this.ctx.currentTime;
+    // High-pitched UP-I / POS style confirmation double-beep
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(1760, now);
+    osc.frequency.setValueAtTime(2349, now + 0.08);
+
+    gain.gain.setValueAtTime(0.25, now);
+    gain.gain.setValueAtTime(0.25, now + 0.07);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.22);
+  }
+
+  public playCouponUnlock() {
+    if (this.isMuted) return;
+    this.initCtx();
+    if (!this.ctx) return;
+
+    const now = this.ctx.currentTime;
+    // Triumphant desi jingle / brass fanfare chord
+    const notes = [523.25, 659.25, 783.99, 1046.5, 1318.51]; // C major celebratory arpeggio
+    notes.forEach((freq, idx) => {
+      if (!this.ctx) return;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, now + idx * 0.07);
+
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.setValueAtTime(0.28, now + idx * 0.07);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.07 + 0.5);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(now + idx * 0.07);
+      osc.stop(now + idx * 0.07 + 0.5);
     });
   }
 }

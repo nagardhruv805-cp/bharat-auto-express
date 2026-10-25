@@ -15,6 +15,7 @@ import {
   getRivalAutoMudflapTexture,
   getBusRouteBoardTexture,
   getCycleRickshawHoodTexture,
+  getDhabaQrStandTexture,
 } from './textures';
 
 // Shared materials and geometries for optimal draw call reuse & performance
@@ -883,7 +884,50 @@ export function createChaiDhaba(): THREE.Group {
     dhaba.add(kulhad);
   }
 
+  // Scannable Digital Dhaba UPI / QR Standee on Counter
+  const qrStand = createDigitalDhabaQrStand('SHARMA-CHAI-99');
+  qrStand.position.set(1.2, 1.4, 1.05);
+  qrStand.scale.set(0.85, 0.85, 0.85);
+  dhaba.add(qrStand);
+
   return dhaba;
+}
+
+// Scannable 3D Digital Dhaba QR Acrylic Standee Object
+export function createDigitalDhabaQrStand(codeText: string = 'SHARMA-CHAI-99'): THREE.Group {
+  const stand = new THREE.Group();
+
+  // Acrylic base
+  const baseGeo = new THREE.BoxGeometry(0.7, 0.05, 0.4);
+  const baseMat = new THREE.MeshStandardMaterial({
+    color: 0x1e293b,
+    roughness: 0.3,
+    metalness: 0.2,
+  });
+  const baseMesh = new THREE.Mesh(baseGeo, baseMat);
+  baseMesh.position.y = 0.025;
+  stand.add(baseMesh);
+
+  // Angled QR Face
+  const faceGeo = new THREE.PlaneGeometry(0.65, 0.95);
+  faceGeo.translate(0, 0.5, 0);
+  faceGeo.rotateX(-0.15);
+  const qrMat = new THREE.MeshBasicMaterial({
+    map: getDhabaQrStandTexture(codeText),
+    side: THREE.DoubleSide,
+  });
+  const faceMesh = new THREE.Mesh(faceGeo, qrMat);
+  stand.add(faceMesh);
+
+  // Back of stand
+  const backGeo = new THREE.PlaneGeometry(0.65, 0.95);
+  backGeo.translate(0, 0.5, 0);
+  backGeo.rotateX(-0.15);
+  backGeo.rotateY(Math.PI);
+  const backMesh = new THREE.Mesh(backGeo, baseMat);
+  stand.add(backMesh);
+
+  return stand;
 }
 
 // ==========================================
@@ -2462,6 +2506,13 @@ export function createChaiBreakStall(): ChaiBreakStallObject {
   const beacon = new THREE.Mesh(arrowGeo, arrowMat);
   beacon.position.set(-0.8, 1.8, 3.8);
   stall.add(beacon);
+
+  // Digital Dhaba Roadside Scannable QR Board
+  const roadsideQr = createDigitalDhabaQrStand('MUNNA-SAMOSA-24');
+  roadsideQr.position.set(-0.6, 0, 4.4);
+  roadsideQr.scale.set(1.3, 1.3, 1.3);
+  roadsideQr.rotation.y = -Math.PI / 3;
+  stall.add(roadsideQr);
 
   return stall;
 }
